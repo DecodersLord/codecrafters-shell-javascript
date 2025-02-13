@@ -9,7 +9,7 @@ const rl = readline.createInterface({
 
 function checkCommand(command) {
     if (builtin.includes(command)) {
-        console.log(`${command}: is a shell builtin`);
+        console.log(`${command} is a shell builtin`);
     } else {
         console.log(`${command}: command not found`);
     }
