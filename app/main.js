@@ -9,10 +9,14 @@ const rl = readline.createInterface({
 
 async function REPLFunction() {
     rl.question("$ ", (answer) => {
-        if (answer === "exit 0") {
+        if (answer.startsWith("echo ")) {
+            console.log(answer.substring(5));
+        } else if (answer === "exit 0") {
             process.exit(0);
+        } else {
+            console.log(`${answer}: command not found`);
         }
-        console.log(`${answer}: command not found`);
+
         REPLFunction();
     });
 }
