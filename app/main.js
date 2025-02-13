@@ -9,6 +9,9 @@ const rl = readline.createInterface({
 
 async function REPLFunction() {
     rl.question("$ ", (answer) => {
+        if (answer === "exit 0") {
+            process.exit(0);
+        }
         console.log(`${answer}: command not found`);
         REPLFunction();
     });
