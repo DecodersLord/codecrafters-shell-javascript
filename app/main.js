@@ -11,7 +11,7 @@ function checkCommand(command) {
     if (builtin.includes(command)) {
         console.log(`${command} is a shell builtin`);
     } else {
-        console.log(`${command}: command not found`);
+        console.log(`${command}: not found`);
     }
 }
 // Uncomment this block to pass the first stage
