@@ -11,7 +11,7 @@ const rl = readline.createInterface({
 
 function checkCommand(command) {
     if (commands.includes(command)) {
-        rl.write(`${command} is a shell builtin\n`);
+        rl.write(`${command} is a shell builtin`);
     } else {
         const paths = process.env.PATH.split(":");
 
@@ -22,6 +22,7 @@ function checkCommand(command) {
                 return;
             }
         }
+        console.log(`${command}: not found`);
     }
 }
 // Uncomment this block to pass the first stage
