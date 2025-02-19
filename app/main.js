@@ -11,18 +11,18 @@ const rl = readline.createInterface({
 
 function checkCommand(command) {
     if (commands.includes(command)) {
-        rl.write(`${command} is a shell builtin`);
+        rl.write(`${command} is a shell builtin\n`);
     } else {
         const paths = process.env.PATH.split(":");
 
         for (const pathEnv of paths) {
             let destPath = path.join(pathEnv, command);
-            if (fs.existsSync(destPath)) {
+            if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
                 rl.write(`${command} is ${destPath}\n`);
                 return;
             }
         }
-        console.log(`${command}: not found`);
+        rl.write(`${command}: not found\n`);
     }
 }
 // Uncomment this block to pass the first stage
