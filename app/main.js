@@ -45,7 +45,7 @@ function handleFile(answer) {
     for (const pathEnv of paths) {
         let destPath = path.join(pathEnv, fileName);
         if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            execFileSync(destPath, args, {
+            execFileSync(fileName, args, {
                 encoding: "utf-8",
                 stdio: "inherit",
             });
