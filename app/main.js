@@ -11,14 +11,14 @@ const rl = readline.createInterface({
 
 function checkCommand(command) {
     if (commands.includes(command)) {
-        console.log(`${command} is a shell builtin`);
+        rl.write(`${command} is a shell builtin\n`);
     } else {
         const paths = process.env.PATH.split(":");
 
         for (const pathEnv of paths) {
-            let destPath = path.join(pathEnv, answer);
+            let destPath = path.join(pathEnv, command);
             if (fs.existsSync(destPath)) {
-                rl.write(`${answer} is ${destPath}\n`);
+                rl.write(`${command} is ${destPath}\n`);
                 return;
             }
         }
