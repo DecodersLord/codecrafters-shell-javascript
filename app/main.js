@@ -32,7 +32,7 @@ async function REPLFunction() {
         if (answer.startsWith("type ")) {
             checkCommand(answer.substring("type ".length));
         } else if (answer.startsWith("echo ")) {
-            rl.write(answer.substring(5));
+            rl.write(`${answer.substring(5)}\n`);
         } else if (answer === "exit 0") {
             process.exit(0);
         } else {
