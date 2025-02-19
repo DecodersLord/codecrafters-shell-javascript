@@ -13,7 +13,15 @@ function checkCommand(command) {
     if (commands.includes(command)) {
         console.log(`${command} is a shell builtin`);
     } else {
-        console.log(`${command}: not found`);
+        const paths = process.env.PATH.split(":");
+
+        for (const pathEnv of paths) {
+            let destPath = path.join(pathEnv, answer);
+            if (fs.existsSync(destPath)) {
+                rl.write(`${answer} is ${destPath}\n`);
+                return;
+            }
+        }
     }
 }
 // Uncomment this block to pass the first stage
@@ -27,15 +35,6 @@ async function REPLFunction() {
         } else if (answer === "exit 0") {
             process.exit(0);
         } else {
-            const paths = process.env.PATH.split(":");
-
-            for (const pathEnv of paths) {
-                let destPath = path.join(pathEnv, answer);
-                if (fs.existsSync(destPath)) {
-                    rl.write(`${answer} is ${destPath}\n`);
-                    return;
-                }
-            }
             rl.write(`${answer}: command not found\n`);
         }
 
