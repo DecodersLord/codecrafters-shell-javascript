@@ -1,6 +1,8 @@
 const readline = require("readline");
+const path = require("path");
+const fs = require("fs");
 
-const builtin = ["help", "clear", "exit", "echo", "type"];
+const commands = ["help", "clear", "exit", "echo", "type"];
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -8,7 +10,7 @@ const rl = readline.createInterface({
 });
 
 function checkCommand(command) {
-    if (builtin.includes(command)) {
+    if (commands.includes(command)) {
         console.log(`${command} is a shell builtin`);
     } else {
         console.log(`${command}: not found`);
@@ -21,11 +23,20 @@ async function REPLFunction() {
         if (answer.startsWith("type ")) {
             checkCommand(answer.substring("type ".length));
         } else if (answer.startsWith("echo ")) {
-            console.log(answer.substring(5));
+            rl.write(answer.substring(5));
         } else if (answer === "exit 0") {
             process.exit(0);
         } else {
-            console.log(`${answer}: command not found`);
+            const paths = process.env.PATH.split(":");
+
+            for (const pathEnv of paths) {
+                let destPath = path.join(pathEnv, answer);
+                if (fs.existsSync(destPath)) {
+                    rl.write(`${answer} is ${destPath}\n`);
+                    return;
+                }
+            }
+            rl.write(`${answer}: command not found\n`);
         }
 
         REPLFunction();
