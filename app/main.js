@@ -53,6 +53,10 @@ function handleFile(answer) {
     }
 }
 
+function handlePWD() {
+    rl.write(`${process.cwd()}\n`);
+}
+
 async function question() {
     const answer = await rl.question("$ ");
 
@@ -72,6 +76,9 @@ async function question() {
                 handleType(answer);
                 question();
                 break;
+            case "pwd":
+                handlePWD();
+                question();
             default:
                 handleFile(answer);
                 question();
