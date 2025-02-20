@@ -32,7 +32,7 @@ function handleEcho(answer) {
 
 function handleType(answer) {
     const command = answer.split(" ")[1];
-    const commands = ["exit", "echo", "type", "pwd", "cat", "cd"];
+    const commands = ["exit", "echo", "type", "pwd"];
     if (commands.includes(command.toLowerCase())) {
         rl.write(`${command} is a shell builtin\n`);
     } else {
