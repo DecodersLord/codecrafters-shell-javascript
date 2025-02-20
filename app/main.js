@@ -20,12 +20,13 @@ function handleExit() {
 }
 
 function handleEcho(answer) {
-    answer = answer
-        .replaceAll("'", "")
-        .split(" ")
-        .slice(1)
-        .join(" ")
-        .replace(/\s+/g, " ");
+    answer = answer.split(" ").slice(1).join(" ");
+    if (answer.startsWith("'") || answer.startsWith('"')) {
+        answer = answer.replaceAll("'", "");
+    } else {
+        answer = answer.replace(/\s+/g, " ");
+    }
+
     rl.write(`${answer}\n`);
 }
 
