@@ -15,29 +15,52 @@ function parseArgs(input) {
     const regex = /'([^']*)'|"([^"]*)"|([^\\\s]+|\\\s*)/g;
     let match;
     const result = [];
+    let buffer = ""; // To merge adjacent quoted strings
 
     while ((match = regex.exec(input)) !== null) {
-        let part = match[1] || match[2] || match[3]; // Get either quoted or unquoted part
+        let part = match[1] || match[2] || match[3]; // Get either the single-quoted part, double-quoted part, or the unquoted part
 
-        // Handle escaped single or double quotes inside the string
-        if (part.includes("\\'") || part.includes('\\"')) {
-            // Unescape escaped quotes (e.g., \\' becomes single quote and \\" becomes double quote)
-            part = part.replace(/\\(['"])/g, "$1");
+        // Handle escaped quotes (\" or \')
+        if (part.includes("\\")) {
+            // Unescape quotes: \" -> " or \' -> '
+            part = part.replace(/\\(["'])/g, "$1");
         }
 
-        // Handle escaped spaces (e.g., \ )
+        // Handle escaped spaces
         if (part.includes("\\ ")) {
-            part = part.replace(/\\ /g, " "); // Replace escaped spaces with an actual space
+            part = part.replace(/\\ /g, " "); // Replace escaped spaces with actual space
         }
 
-        result.push(part); // Add the part to the result
+        // If the part is a quoted string, we need to ensure quotes are preserved
+        if (match[1]) {
+            // Single-quoted string: preserve the quotes
+            part = `'${part}'`;
+        } else if (match[2]) {
+            // Double-quoted string: preserve the quotes
+            part = `"${part}"`;
+        }
+
+        // Merge adjacent quoted parts
+        if (buffer) {
+            buffer += part;
+        } else {
+            buffer = part;
+        }
+
+        // If next character is a space, push buffer as a separate argument
+        if (regex.lastIndex >= input.length || input[regex.lastIndex] === " ") {
+            result.push(buffer);
+            buffer = ""; // Reset buffer
+        }
     }
+
+    if (buffer) result.push(buffer); // Push the last element if any
 
     return result;
 }
 
 function handleEcho(answer) {
-    const args = parseArgs(answer).slice(1); // Remove the "echo" command
+    const args = parseArgs(answer).slice(1); // Remove "echo" command
     const output = args.join(" "); // Join the arguments with a single space
 
     rl.write(`${output}\n`);
