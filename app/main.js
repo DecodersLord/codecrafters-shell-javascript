@@ -20,7 +20,12 @@ function handleExit() {
 }
 
 function handleEcho(answer) {
-    answer = answer.replaceAll("'", "").split(" ").slice(1).join(" ");
+    answer = answer
+        .replaceAll("'", "")
+        .split(" ")
+        .slice(1)
+        .join(" ")
+        .replace(/\s+/g, " ");
     rl.write(`${answer}\n`);
 }
 
