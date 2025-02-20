@@ -20,12 +20,13 @@ function handleExit() {
 }
 
 function handleEcho(answer) {
-    rl.write(`${answer.split(" ").slice(1).join(" ")}\n`);
+    answer = answer.replaceAll("'", "").split(" ").slice(1).join(" ");
+    rl.write(`${answer}\n`);
 }
 
 function handleType(answer) {
     const command = answer.split(" ")[1];
-    const commands = ["exit", "echo", "type", "pwd"];
+    const commands = ["exit", "echo", "type", "pwd", "cat", "cd"];
     if (commands.includes(command.toLowerCase())) {
         rl.write(`${command} is a shell builtin\n`);
     } else {
@@ -52,6 +53,39 @@ function handleFile(answer) {
                 encoding: "utf-8",
                 stdio: "inherit",
             });
+        }
+    }
+}
+
+function parseArgs(input) {
+    const regex = /'([^']+)'|"([^"]+)"|(\S+)/g;
+    let match;
+    const result = [];
+
+    while ((match = regex.exec(input)) !== null) {
+        result.push(match[1] || match[2] || match[3]);
+    }
+
+    return result;
+}
+
+function handleReadFile(answer) {
+    const args = parseArgs(answer).slice(1); // Extract file paths (excluding "cat")
+
+    if (args.length === 0) {
+        console.error("cat: missing file operand");
+        return;
+    }
+
+    for (const filePath of args) {
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            try {
+                process.stdout.write(fs.readFileSync(filePath, "utf-8"));
+            } catch (err) {
+                console.error(`cat: ${filePath}: Permission denied`);
+            }
+        } else {
+            console.error(`cat: ${filePath}: No such file or directory`);
         }
     }
 }
@@ -98,6 +132,10 @@ async function question() {
                 break;
             case "cd":
                 handleChangeDirectory(answer);
+                question();
+                break;
+            case "cat":
+                handleReadFile(answer);
                 question();
                 break;
             default:
