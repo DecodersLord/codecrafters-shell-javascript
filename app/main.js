@@ -61,7 +61,7 @@ function handleChangeDirectory(answer) {
     const directory = answer.split(" ")[1];
     try {
         process.chdir(directory);
-        rl.write(`${process.cwd()}\n`);
+        question();
     } catch (err) {
         rl.write(`cd: ${directory}: No such file or directory\n`);
     }
