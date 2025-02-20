@@ -15,35 +15,32 @@ function parseArgs(input) {
     const regex = /'([^']*)'|"([^"]*)"|([^\\\s]+|\\\s*)/g;
     let match;
     const result = [];
-    let buffer = ""; // To merge adjacent quoted strings
 
     while ((match = regex.exec(input)) !== null) {
-        let part = match[1] || match[2] || match[3] || match[4];
+        let part = match[1] || match[2] || match[3]; // Get either quoted or unquoted part
 
-        if (part.startsWith("\\") && part.length > 1) {
-            part = part.replace(/\\([\'\"])/g, "$1"); // Unescape quotes (\" or \')
-        }
-
-        if (part.startsWith("\\") && part.length > 1) {
-            part = " "; // Replace all escaped spaces with a single space
-        }
-        // If buffer is not empty, merge with previous part (adjacent quotes case)
-        if (buffer) {
-            buffer += part;
-        } else {
-            buffer = part;
+        // Handle escaped single or double quotes inside the string
+        if (part.includes("\\'") || part.includes('\\"')) {
+            // Unescape escaped quotes (e.g., \\' becomes single quote and \\" becomes double quote)
+            part = part.replace(/\\(['"])/g, "$1");
         }
 
-        // If next character is a space, push buffer as a separate argument
-        if (regex.lastIndex >= input.length || input[regex.lastIndex] === " ") {
-            result.push(buffer);
-            buffer = ""; // Reset buffer
+        // Handle escaped spaces (e.g., \ )
+        if (part.includes("\\ ")) {
+            part = part.replace(/\\ /g, " "); // Replace escaped spaces with an actual space
         }
+
+        result.push(part); // Add the part to the result
     }
 
-    if (buffer) result.push(buffer); // Push last element if any
-
     return result;
+}
+
+function handleEcho(answer) {
+    const args = parseArgs(answer).slice(1); // Remove the "echo" command
+    const output = args.join(" "); // Join the arguments with a single space
+
+    rl.write(`${output}\n`);
 }
 
 function handleInvalid(answer) {
