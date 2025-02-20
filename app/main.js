@@ -17,7 +17,7 @@ function parseArgs(input) {
     const result = [];
 
     while ((match = regex.exec(input)) !== null) {
-        // Preserve spaces between separate arguments
+        // Combine quoted and unquoted parts correctly
         result.push(match[1] || match[2] || match[3]);
     }
 
