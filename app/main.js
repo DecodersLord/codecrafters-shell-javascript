@@ -11,6 +11,7 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
+// Parsing arguments with better handling of quotes and escape sequences
 function parseArgs(input) {
     const regex = /'([^']*)'|"([^"]*)"|([^\\\s]+|\\\s*)/g;
     let match;
@@ -22,7 +23,6 @@ function parseArgs(input) {
 
         // Handle escaped quotes (\" or \')
         if (part.includes("\\")) {
-            // Unescape quotes: \" -> " or \' -> '
             part = part.replace(/\\(["'])/g, "$1");
         }
 
@@ -72,13 +72,6 @@ function handleInvalid(answer) {
 
 function handleExit() {
     rl.close();
-}
-
-function handleEcho(answer) {
-    const args = parseArgs(answer).slice(1); // Remove "echo" command
-    const output = args.join(" "); // Join arguments correctly
-
-    rl.write(`${output}\n`);
 }
 
 function handleType(answer) {
@@ -152,6 +145,7 @@ function handleChangeDirectory(answer) {
         rl.write(`cd: ${directory}: No such file or directory\n`);
     }
 }
+
 async function question() {
     const answer = await rl.question("$ ");
 
