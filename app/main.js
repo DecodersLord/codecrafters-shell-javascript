@@ -1,5 +1,6 @@
 const readline = require("readline/promises");
 const path = require("path");
+const home = require("os").homedir();
 const fs = require("fs");
 const { execFileSync } = require("node:child_process");
 
@@ -60,7 +61,11 @@ function handlePWD() {
 function handleChangeDirectory(answer) {
     const directory = answer.split(" ")[1];
     try {
-        process.chdir(directory);
+        if (directory === "~") {
+            process.chdir(home);
+        } else {
+            process.chdir(directory);
+        }
         question();
     } catch (err) {
         rl.write(`cd: ${directory}: No such file or directory\n`);
