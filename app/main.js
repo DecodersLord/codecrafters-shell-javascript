@@ -12,14 +12,29 @@ const rl = readline.createInterface({
 });
 
 function parseArgs(input) {
-    const regex = /'([^']+)'|"([^"]+)"|(\S+)/g;
+    const regex = /'([^']*)'|"([^"]*)"|(\S+)/g;
     let match;
     const result = [];
+    let buffer = ""; // To merge adjacent quoted strings
 
     while ((match = regex.exec(input)) !== null) {
-        // Combine quoted and unquoted parts correctly
-        result.push(match[1] || match[2] || match[3]);
+        let part = match[1] || match[2] || match[3];
+
+        // If buffer is not empty, merge with previous part (adjacent quotes case)
+        if (buffer) {
+            buffer += part;
+        } else {
+            buffer = part;
+        }
+
+        // If next character is a space, push buffer as a separate argument
+        if (regex.lastIndex >= input.length || input[regex.lastIndex] === " ") {
+            result.push(buffer);
+            buffer = ""; // Reset buffer
+        }
     }
+
+    if (buffer) result.push(buffer); // Push last element if any
 
     return result;
 }
