@@ -21,7 +21,7 @@ function parseArgs(input) {
         let part = match[1] || match[2] || match[3] || match[4];
 
         if (part.startsWith("\\") && part.length > 1) {
-            part = part.replace("\\", " "); // Replace escaped space with actual space
+            part = " "; // Replace all escaped spaces with a single space
         }
         // If buffer is not empty, merge with previous part (adjacent quotes case)
         if (buffer) {
