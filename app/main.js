@@ -11,6 +11,19 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
+function parseArgs(input) {
+    const regex = /'([^']+)'|"([^"]+)"|(\S+)/g;
+    let match;
+    const result = [];
+
+    while ((match = regex.exec(input)) !== null) {
+        // Preserve spaces between separate arguments
+        result.push(match[1] || match[2] || match[3]);
+    }
+
+    return result;
+}
+
 function handleInvalid(answer) {
     rl.write(`${answer}: command not found\n`);
 }
@@ -20,14 +33,10 @@ function handleExit() {
 }
 
 function handleEcho(answer) {
-    answer = answer.split(" ").slice(1).join(" ");
-    if (answer.startsWith("'") || answer.startsWith('"')) {
-        answer = answer.replaceAll("'", "") && answer.replaceAll('"', "");
-    } else {
-        answer = answer.replace(/\s+/g, " ");
-    }
+    const args = parseArgs(answer).slice(1); // Remove "echo" command
+    const output = args.join(" "); // Join arguments correctly
 
-    rl.write(`${answer}\n`);
+    rl.write(`${output}\n`);
 }
 
 function handleType(answer) {
@@ -61,18 +70,6 @@ function handleFile(answer) {
             });
         }
     }
-}
-
-function parseArgs(input) {
-    const regex = /'([^']+)'|"([^"]+)"|(\S+)/g;
-    let match;
-    const result = [];
-
-    while ((match = regex.exec(input)) !== null) {
-        result.push(match[1] || match[2] || match[3]);
-    }
-
-    return result;
 }
 
 function handleReadFile(answer) {
