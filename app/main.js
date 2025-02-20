@@ -57,6 +57,15 @@ function handlePWD() {
     rl.write(`${process.cwd()}\n`);
 }
 
+function handleChangeDirectory(answer) {
+    const directory = answer.split(" ")[1];
+    try {
+        process.chdir(directory);
+        rl.write(`${process.cwd()}\n`);
+    } catch (err) {
+        rl.write(`cd: ${directory}: No such file or directory\n`);
+    }
+}
 async function question() {
     const answer = await rl.question("$ ");
 
@@ -79,6 +88,11 @@ async function question() {
             case "pwd":
                 handlePWD();
                 question();
+                break;
+            case "cd":
+                handleChangeDirectory(answer);
+                question();
+                break;
             default:
                 handleFile(answer);
                 question();
