@@ -1,8 +1,10 @@
 const readline = require("readline/promises");
 const path = require("path");
-const home = require("os").homedir();
+const os = require("os");
 const fs = require("fs");
 const { execFileSync } = require("node:child_process");
+
+const HOMEDIR = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -62,7 +64,7 @@ function handleChangeDirectory(answer) {
     const directory = answer.split(" ")[1];
     try {
         if (directory === "~") {
-            process.chdir(home);
+            process.chdir(HOMEDIR);
         } else {
             process.chdir(directory);
         }
