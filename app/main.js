@@ -22,7 +22,7 @@ function handleExit() {
 function handleEcho(answer) {
     answer = answer.split(" ").slice(1).join(" ");
     if (answer.startsWith("'") || answer.startsWith('"')) {
-        answer = answer.replaceAll("'", "");
+        answer = answer.replaceAll("'", "") && answer.replaceAll('"', "");
     } else {
         answer = answer.replace(/\s+/g, " ");
     }
