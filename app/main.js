@@ -23,30 +23,35 @@ function parseArgs(input) {
         const char = input[i];
 
         if (escapeNext) {
-            // Escape the next character, except newline (handled as line continuation)
+            // Handle escaped character
             currentArg.push(char);
             escapeNext = false;
         } else if (char === "\\") {
-            // Escape next character, handle in the next iteration
-            escapeNext = true;
+            // Escape next character unless inside single quotes
+            if (!inSingleQuotes) {
+                escapeNext = true;
+            } else {
+                currentArg.push(char); // Treat backslash as literal in single quotes
+            }
         } else if (char === "'" && !inDoubleQuotes) {
-            // Toggle single quotes
+            // Toggle single quotes (double quotes take precedence)
             inSingleQuotes = !inSingleQuotes;
         } else if (char === '"' && !inSingleQuotes) {
-            // Toggle double quotes
+            // Toggle double quotes (single quotes take precedence)
             inDoubleQuotes = !inDoubleQuotes;
         } else if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
-            // Space outside quotes: finalize current argument
+            // Split arguments on unquoted spaces
             if (currentArg.length > 0) {
                 args.push(currentArg.join(""));
                 currentArg = [];
             }
         } else {
+            // Add character to current argument
             currentArg.push(char);
         }
     }
 
-    // Add the last argument if any
+    // Add the final argument
     if (currentArg.length > 0) {
         args.push(currentArg.join(""));
     }
@@ -102,7 +107,7 @@ function handleFile(answer) {
 }
 
 function handleReadFile(answer) {
-    const args = parseArgs(answer).slice(1); // Extract file paths (excluding "cat")
+    const args = parseArgs(answer).slice(1); // Extract file paths after "cat"
 
     if (args.length === 0) {
         console.error("cat: missing file operand");
@@ -110,71 +115,17 @@ function handleReadFile(answer) {
     }
 
     for (const filePath of args) {
-        // Handle escape sequences and quotes in the file path
-        const resolvedPath = handleInput(filePath, rl);
-
-        if (fs.existsSync(resolvedPath)) {
-            try {
-                process.stdout.write(fs.readFileSync(resolvedPath, "utf-8"));
-            } catch (err) {
-                console.error(`cat: ${resolvedPath}: Permission denied`);
-            }
-        } else {
-            console.error(`cat: ${resolvedPath}: No such file or directory`);
-        }
-    }
-}
-
-function handleInput(input, rl) {
-    let singleQuote = false;
-    let doubleQuote = false;
-    let output = "";
-    for (let i = 0; i < input.length; i++) {
-        if (input[i] === "\\") {
-            i++;
-            if (i >= input.length) {
-                break;
-            }
-            if (doubleQuote) {
-                // Handle escape sequences inside double quotes
-                if (["$", "`", '"', "\\", "\n"].includes(input[i])) {
-                    output += input[i]; // Preserve escaped character
-                } else {
-                    output += "\\" + input[i]; // Keep backslash for other characters
-                }
-            } else if (singleQuote) {
-                // Inside single quotes, backslashes are literal
-                output += "\\" + input[i];
+        try {
+            const data = fs.readFileSync(filePath, "utf-8");
+            process.stdout.write(data);
+        } catch (err) {
+            if (err.code === "ENOENT") {
+                console.error(`cat: ${filePath}: No such file or directory`);
             } else {
-                // Outside quotes, backslash escapes the next character
-                output += input[i];
-            }
-            continue;
-        }
-
-        if (input[i] === " " && !singleQuote && !doubleQuote) {
-            output += " ";
-            while (i < input.length && input[i] === " ") {
-                i++;
-            }
-            if (i >= input.length) {
-                break;
+                console.error(`cat: ${filePath}: Permission denied`);
             }
         }
-
-        if (input[i] === "'" && !doubleQuote) {
-            singleQuote = !singleQuote;
-            continue;
-        }
-
-        if (input[i] === '"' && !singleQuote) {
-            doubleQuote = !doubleQuote;
-            continue;
-        }
-
-        output += input[i];
     }
-    return output;
 }
 
 function handlePWD() {
