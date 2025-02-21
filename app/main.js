@@ -110,16 +110,71 @@ function handleReadFile(answer) {
     }
 
     for (const filePath of args) {
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        // Handle escape sequences and quotes in the file path
+        const resolvedPath = handleInput(filePath, rl);
+
+        if (fs.existsSync(resolvedPath)) {
             try {
-                process.stdout.write(fs.readFileSync(filePath, "utf-8"));
+                process.stdout.write(fs.readFileSync(resolvedPath, "utf-8"));
             } catch (err) {
-                console.error(`cat: ${filePath}: Permission denied`);
+                console.error(`cat: ${resolvedPath}: Permission denied`);
             }
         } else {
-            console.error(`cat: ${filePath}: No such file or directory`);
+            console.error(`cat: ${resolvedPath}: No such file or directory`);
         }
     }
+}
+
+function handleInput(input, rl) {
+    let singleQuote = false;
+    let doubleQuote = false;
+    let output = "";
+    for (let i = 0; i < input.length; i++) {
+        if (input[i] === "\\") {
+            i++;
+            if (i >= input.length) {
+                break;
+            }
+            if (doubleQuote) {
+                // Handle escape sequences inside double quotes
+                if (["$", "`", '"', "\\", "\n"].includes(input[i])) {
+                    output += input[i]; // Preserve escaped character
+                } else {
+                    output += "\\" + input[i]; // Keep backslash for other characters
+                }
+            } else if (singleQuote) {
+                // Inside single quotes, backslashes are literal
+                output += "\\" + input[i];
+            } else {
+                // Outside quotes, backslash escapes the next character
+                output += input[i];
+            }
+            continue;
+        }
+
+        if (input[i] === " " && !singleQuote && !doubleQuote) {
+            output += " ";
+            while (i < input.length && input[i] === " ") {
+                i++;
+            }
+            if (i >= input.length) {
+                break;
+            }
+        }
+
+        if (input[i] === "'" && !doubleQuote) {
+            singleQuote = !singleQuote;
+            continue;
+        }
+
+        if (input[i] === '"' && !singleQuote) {
+            doubleQuote = !doubleQuote;
+            continue;
+        }
+
+        output += input[i];
+    }
+    return output;
 }
 
 function handlePWD() {
