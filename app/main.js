@@ -11,7 +11,10 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
-// Parsing arguments with better handling of quotes and escape sequences
+// A custom parseArgs that implements POSIX-like quoting:
+// - Outside quotes: a backslash always escapes the next character (and is removed).
+// - Inside double quotes: a backslash only escapes $, `, ", \, or newline;
+//   if it precedes any other character, the backslash is preserved.
 function parseArgs(input) {
     let args = [];
     let currentArg = [];
@@ -23,45 +26,69 @@ function parseArgs(input) {
         const char = input[i];
 
         if (escapeNext) {
-            // Handle escaped character
-            currentArg.push(char);
-            escapeNext = false;
-        } else if (char === "\\") {
-            // Escape next character unless inside single quotes
-            if (!inSingleQuotes) {
-                escapeNext = true;
+            if (inDoubleQuotes) {
+                // In double quotes, only these characters are specially escaped.
+                if (
+                    char === "$" ||
+                    char === "`" ||
+                    char === '"' ||
+                    char === "\\" ||
+                    char === "\n"
+                ) {
+                    // Backslash escapes these: do not preserve the backslash.
+                    currentArg.push(char);
+                } else {
+                    // For any other character, the backslash is left in.
+                    currentArg.push("\\", char);
+                }
             } else {
-                currentArg.push(char); // Treat backslash as literal in single quotes
+                // Outside of double quotes (or in single quotes), backslash always escapes.
+                currentArg.push(char);
             }
-        } else if (char === "'" && !inDoubleQuotes) {
-            // Toggle single quotes (double quotes take precedence)
+            escapeNext = false;
+            continue;
+        }
+
+        if (char === "\\") {
+            // In single quotes, backslashes are literal.
+            if (inSingleQuotes) {
+                currentArg.push(char);
+            } else {
+                escapeNext = true;
+            }
+            continue;
+        }
+
+        if (char === "'" && !inDoubleQuotes) {
             inSingleQuotes = !inSingleQuotes;
-        } else if (char === '"' && !inSingleQuotes) {
-            // Toggle double quotes (single quotes take precedence)
+            continue;
+        }
+
+        if (char === '"' && !inSingleQuotes) {
             inDoubleQuotes = !inDoubleQuotes;
-        } else if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
-            // Split arguments on unquoted spaces
+            continue;
+        }
+
+        if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
             if (currentArg.length > 0) {
                 args.push(currentArg.join(""));
                 currentArg = [];
             }
-        } else {
-            // Add character to current argument
-            currentArg.push(char);
+            continue;
         }
+
+        currentArg.push(char);
     }
 
-    // Add the final argument
     if (currentArg.length > 0) {
         args.push(currentArg.join(""));
     }
-
     return args;
 }
 
 function handleEcho(answer) {
     const args = parseArgs(answer).slice(1); // Remove "echo" command
-    const output = args.join(" "); // Join arguments with a single space
+    const output = args.join(" ");
     rl.write(`${output}\n`);
 }
 
@@ -108,12 +135,10 @@ function handleFile(answer) {
 
 function handleReadFile(answer) {
     const args = parseArgs(answer).slice(1); // Extract file paths after "cat"
-
     if (args.length === 0) {
         console.error("cat: missing file operand");
         return;
     }
-
     for (const filePath of args) {
         try {
             const data = fs.readFileSync(filePath, "utf-8");
