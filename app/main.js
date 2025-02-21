@@ -13,56 +13,50 @@ const rl = readline.createInterface({
 
 // Parsing arguments with better handling of quotes and escape sequences
 function parseArgs(input) {
-    const regex = /'([^']*)'|"([^"]*)"|([^\\\s]+|\\\s*)/g;
-    let match;
-    const result = [];
-    let buffer = ""; // To merge adjacent quoted strings
+    let args = [];
+    let currentArg = [];
+    let inSingleQuotes = false;
+    let inDoubleQuotes = false;
+    let escapeNext = false;
 
-    while ((match = regex.exec(input)) !== null) {
-        let part = match[1] || match[2] || match[3]; // Get either the single-quoted part, double-quoted part, or the unquoted part
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
 
-        // Handle escaped quotes (\" or \')
-        if (part.includes("\\")) {
-            part = part.replace(/\\(["'])/g, "$1");
-        }
-
-        // Handle escaped spaces
-        if (part.includes("\\ ")) {
-            part = part.replace(/\\ /g, " "); // Replace escaped spaces with actual space
-        }
-
-        // If the part is a quoted string, we need to ensure quotes are preserved
-        if (match[1]) {
-            // Single-quoted string: preserve the quotes
-            part = `'${part}'`;
-        } else if (match[2]) {
-            // Double-quoted string: preserve the quotes
-            part = `"${part}"`;
-        }
-
-        // Merge adjacent quoted parts
-        if (buffer) {
-            buffer += part;
+        if (escapeNext) {
+            // Escape the next character, except newline (handled as line continuation)
+            currentArg.push(char);
+            escapeNext = false;
+        } else if (char === "\\") {
+            // Escape next character, handle in the next iteration
+            escapeNext = true;
+        } else if (char === "'" && !inDoubleQuotes) {
+            // Toggle single quotes
+            inSingleQuotes = !inSingleQuotes;
+        } else if (char === '"' && !inSingleQuotes) {
+            // Toggle double quotes
+            inDoubleQuotes = !inDoubleQuotes;
+        } else if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
+            // Space outside quotes: finalize current argument
+            if (currentArg.length > 0) {
+                args.push(currentArg.join(""));
+                currentArg = [];
+            }
         } else {
-            buffer = part;
-        }
-
-        // If next character is a space, push buffer as a separate argument
-        if (regex.lastIndex >= input.length || input[regex.lastIndex] === " ") {
-            result.push(buffer);
-            buffer = ""; // Reset buffer
+            currentArg.push(char);
         }
     }
 
-    if (buffer) result.push(buffer); // Push the last element if any
+    // Add the last argument if any
+    if (currentArg.length > 0) {
+        args.push(currentArg.join(""));
+    }
 
-    return result;
+    return args;
 }
 
 function handleEcho(answer) {
     const args = parseArgs(answer).slice(1); // Remove "echo" command
-    const output = args.join(" "); // Join the arguments with a single space
-
+    const output = args.join(" "); // Join arguments with a single space
     rl.write(`${output}\n`);
 }
 
