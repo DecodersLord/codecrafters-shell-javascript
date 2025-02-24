@@ -88,6 +88,33 @@ function parseArgs(input) {
     return args;
 }
 
+function handleRedirect(answer) {
+    let op = "";
+    let opIndex = -1;
+    if (answer.indexOf(">>") !== -1) {
+        op = ">>";
+        opIndex = answer.indexOf(">>");
+    } else if (answer.indexOf("1>") !== -1) {
+        op = "1>";
+        opIndex = answer.indexOf("1>");
+    } else if (answer.indexOf(">") !== -1) {
+        op = ">";
+        opIndex = answer.indexOf(">");
+    }
+    const command = answer.slice(0, opIndex).trim();
+    const filename = answer.slice(opIndex + op.length).trim();
+    const fd = op === ">>" ? "a" : op === "1>" || op === ">" ? "w" : "w+";
+    try {
+        fs.createWriteStream(filename, { flags: fd }).write(command);
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            console.error(`cat: ${filename}: No such file or directory`);
+        } else {
+            console.error(`cat: ${filename}: Permission denied`);
+        }
+    }
+}
+
 // ----- Command Handlers -----
 
 function handleEcho(answer) {
@@ -194,33 +221,43 @@ async function question() {
     } else {
         const parts = parseArgs(answer);
         const cmd = parts[0]?.toLowerCase();
-        switch (cmd) {
-            case "exit":
-                handleExit();
-                break;
-            case "echo":
-                handleEcho(answer);
-                question();
-                break;
-            case "type":
-                handleType(answer);
-                question();
-                break;
-            case "pwd":
-                handlePWD();
-                question();
-                break;
-            case "cd":
-                handleChangeDirectory(answer);
-                question();
-                break;
-            case "cat":
-                handleReadFile(answer);
-                question();
-                break;
-            default:
-                handleFile(answer);
-                question();
+        if (
+            answer.includes(">") ||
+            answer.includes(">>") ||
+            answer.includes("1>")
+        ) {
+            // Handle redirection
+            handleRedirect(answer);
+            question();
+        } else {
+            switch (cmd) {
+                case "exit":
+                    handleExit();
+                    break;
+                case "echo":
+                    handleEcho(answer);
+                    question();
+                    break;
+                case "type":
+                    handleType(answer);
+                    question();
+                    break;
+                case "pwd":
+                    handlePWD();
+                    question();
+                    break;
+                case "cd":
+                    handleChangeDirectory(answer);
+                    question();
+                    break;
+                case "cat":
+                    handleReadFile(answer);
+                    question();
+                    break;
+                default:
+                    handleFile(answer);
+                    question();
+            }
         }
     }
 }
