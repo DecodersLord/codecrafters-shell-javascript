@@ -89,15 +89,13 @@ function parseArgs(input) {
 }
 
 function handleRedirect(answer) {
-    // Parse the entire command first
+    // Determine which redirection operator is present.
     const parts = parseArgs(answer);
-
-    // Ordered by operator priority (longest first)
     const operators = ["2>>", "1>>", "2>", "1>", ">>", ">"];
     let op = null;
     let opIndex = -1;
 
-    // Find last matching operator in parsed arguments
+    // Find the last valid operator in the parsed arguments
     for (let i = 0; i < parts.length; i++) {
         if (operators.includes(parts[i])) {
             op = parts[i];
@@ -105,7 +103,7 @@ function handleRedirect(answer) {
         }
     }
 
-    if (opIndex === -1 || opIndex === parts.length - 1) return;
+    if (!op || opIndex === parts.length - 1) return;
 
     const filename = parts[opIndex + 1];
     const commandParts = parts.slice(0, opIndex);
@@ -114,7 +112,7 @@ function handleRedirect(answer) {
     // Determine operation parameters
     const isAppend = op.endsWith(">>");
     const isStderr = op.startsWith("2");
-    const flag = isAppend ? "a" : "w+";
+    const flag = isAppend ? "a" : "w";
 
     // Execute command
     const result = spawnSync(commandParts[0], commandParts.slice(1), {
@@ -122,26 +120,24 @@ function handleRedirect(answer) {
         stdio: ["inherit", "pipe", "pipe"],
     });
 
-    // Handle file output
     try {
-        // Ensure directory exists
+        // Always create directory structure
         fs.mkdirSync(path.dirname(filename), { recursive: true });
 
-        // Get content to write
+        // Get content to write (empty string if undefined)
         const content = (isStderr ? result.stderr : result.stdout) || "";
 
-        // Write to file
-        if (content) {
-            fs.writeFileSync(filename, content, {
-                flag: flag,
-                mode: 0o644,
-            });
-        }
+        // Always write to file (creates empty file if needed)
+        fs.writeFileSync(filename, content, {
+            flag: flag,
+            mode: 0o644,
+        });
 
-        // Print non-redirected output
+        // Print non-redirected output to console
+        const consoleStream = isStderr ? process.stdout : process.stderr;
         const consoleOutput = isStderr ? result.stdout : result.stderr;
         if (consoleOutput) {
-            process[isStderr ? "stdout" : "stderr"].write(consoleOutput);
+            consoleStream.write(consoleOutput);
         }
     } catch (err) {
         process.stderr.write(
