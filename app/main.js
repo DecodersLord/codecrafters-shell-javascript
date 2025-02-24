@@ -2,7 +2,7 @@ const readline = require("readline/promises");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-const { execFileSync, spawnSync } = require("child_process");
+const { execFileSync } = require("node:child_process");
 
 const HOMEDIR = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
@@ -11,60 +11,85 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
-// A custom parser that obeys basic POSIX-like quoting rules.
+/**
+ * parseArgs: split the input into arguments following POSIX-like quoting rules.
+ *
+ * Rules:
+ * - Outside quotes, a backslash escapes the next character.
+ * - Inside double quotes, a backslash only escapes $, `, ", \, or newline.
+ * - Inside single quotes, everything is literal.
+ */
 function parseArgs(input) {
     let args = [];
-    let currentArg = [];
-    let inSingleQuotes = false;
-    let inDoubleQuotes = false;
+    let current = [];
+    let inSingle = false;
+    let inDouble = false;
     let escapeNext = false;
 
     for (let i = 0; i < input.length; i++) {
-        const char = input[i];
+        let ch = input[i];
 
         if (escapeNext) {
-            currentArg.push(char);
+            if (inDouble) {
+                // In double quotes, only these characters are specially escaped.
+                if (
+                    ch === "$" ||
+                    ch === "`" ||
+                    ch === '"' ||
+                    ch === "\\" ||
+                    ch === "\n"
+                ) {
+                    current.push(ch);
+                } else {
+                    // Otherwise, leave the backslash in.
+                    current.push("\\", ch);
+                }
+            } else {
+                current.push(ch);
+            }
             escapeNext = false;
             continue;
         }
 
-        if (char === "\\") {
-            // In single quotes, backslash is literal.
-            if (inSingleQuotes) {
-                currentArg.push(char);
+        if (ch === "\\") {
+            // If in single quotes, backslash is literal.
+            if (inSingle) {
+                current.push(ch);
             } else {
                 escapeNext = true;
             }
             continue;
         }
 
-        if (char === "'" && !inDoubleQuotes) {
-            inSingleQuotes = !inSingleQuotes;
-            continue; // Do not include the quotes.
+        if (ch === "'" && !inDouble) {
+            inSingle = !inSingle;
+            continue; // do not include the outer single quotes
         }
-        if (char === '"' && !inSingleQuotes) {
-            inDoubleQuotes = !inDoubleQuotes;
-            continue; // Do not include the quotes.
+        if (ch === '"' && !inSingle) {
+            inDouble = !inDouble;
+            continue; // do not include the outer double quotes
         }
 
-        if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
-            if (currentArg.length > 0) {
-                args.push(currentArg.join(""));
-                currentArg = [];
+        if (ch === " " && !inSingle && !inDouble) {
+            if (current.length > 0) {
+                args.push(current.join(""));
+                current = [];
             }
             continue;
         }
 
-        currentArg.push(char);
+        current.push(ch);
     }
-    if (currentArg.length > 0) {
-        args.push(currentArg.join(""));
+
+    if (current.length > 0) {
+        args.push(current.join(""));
     }
+
     return args;
 }
 
-// STDOUT redirection handler (for >, 1>, >>)
 function handleRedirect(answer) {
+    // Determine which redirection operator is present.
     let op = "";
     let opIndex = -1;
     if (answer.indexOf(">>") !== -1) {
@@ -76,40 +101,53 @@ function handleRedirect(answer) {
     } else if (answer.indexOf(">") !== -1) {
         op = ">";
         opIndex = answer.indexOf(">");
+    } else {
+        // No redirection operator found; nothing to do.
+        return;
     }
+
+    // Split the input into three parts.
     const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
-    // ">>" means append; both "1>" and ">" mean overwrite.
+
+    // For redirection, ">>" means append; "1>" and ">" both mean overwrite.
     const flag = op === ">>" ? "a" : "w";
+
+    // Parse the command part into command and arguments.
     const parts = parseArgs(commandPart);
     if (parts.length === 0) return;
     const cmd = parts[0];
     const args = parts.slice(1);
+
+    // Execute the command and capture its stdout.
     let output = "";
     try {
+        // We capture stdout and use 'pipe' for stderr so we can pass errors to console.
         output = execFileSync(cmd, args, {
             encoding: "utf-8",
             stdio: ["pipe", "pipe", "pipe"],
         });
     } catch (error) {
-        // Even if the command fails, capture its stdout.
+        // If an error occurs (e.g. cat with one missing file), use any captured stdout.
         output = error.stdout || "";
+        // Print any error message (stderr) to the console.
         if (error.stderr) {
             process.stderr.write(error.stderr);
         }
     }
+
+    // Write the captured output to the file.
     try {
         fs.writeFileSync(filename, output, { flag: flag });
     } catch (err) {
         if (err.code === "ENOENT") {
-            console.error(`${cmd}: ${filename}: No such file or directory`);
+            console.error(`cat: ${filename}: No such file or directory`);
         } else {
-            console.error(`${cmd}: ${filename}: Permission denied`);
+            console.error(`cat: ${filename}: Permission denied`);
         }
     }
 }
 
-// STDERR redirection handler (for 2>)
 function handleStderrRedirect(answer) {
     const op = "2>";
     const opIndex = answer.indexOf(op);
@@ -134,9 +172,12 @@ function handleStderrRedirect(answer) {
     }
 }
 
+// ----- Command Handlers -----
+
 function handleEcho(answer) {
-    const args = parseArgs(answer).slice(1); // Remove the "echo" command
-    const output = args.join(" ");
+    const parts = parseArgs(answer);
+    // parts[0] is "echo"; join the rest with a space.
+    const output = parts.slice(1).join(" ");
     rl.write(`${output}\n`);
 }
 
@@ -168,14 +209,15 @@ function handleType(answer) {
 }
 
 function handleFile(answer) {
+    // Use parseArgs to handle any quoting in the command name
     const parts = parseArgs(answer);
-    const executable = parts[0];
+    const executable = parts[0]; // the command name (may be quoted)
     const args = parts.slice(1);
     const paths = process.env.PATH.split(":");
-    for (const p of paths) {
-        let destPath = path.join(p, executable);
+    for (const pathEnv of paths) {
+        let destPath = path.join(pathEnv, executable);
         if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            // Set argv0 so the child sees the bare command name.
+            // Use argv0 option so that the child process sees the bare command name.
             execFileSync(destPath, args, {
                 encoding: "utf-8",
                 stdio: "inherit",
@@ -188,8 +230,7 @@ function handleFile(answer) {
 }
 
 function handleReadFile(answer) {
-    const parts = parseArgs(answer);
-    const args = parts.slice(1);
+    const args = parseArgs(answer).slice(1); // Extract file paths (excluding "cat")
     if (args.length === 0) {
         console.error("cat: missing file operand");
         return;
@@ -227,58 +268,56 @@ function handleChangeDirectory(answer) {
     }
 }
 
+// ----- Main REPL Loop -----
+
 async function question() {
     const answer = await rl.question("$ ");
-    // Check for stderr redirection first.
-    if (answer.includes("2>")) {
+    if (answer.startsWith("2>")) {
         handleStderrRedirect(answer);
         question();
-        return;
-    }
-    // Then check for stdout redirection.
-    if (
-        answer.includes("1>") ||
-        answer.includes(">>") ||
-        (answer.includes(">") && !answer.includes("2>"))
-    ) {
-        handleRedirect(answer);
-        question();
-        return;
-    }
-
-    if (answer.startsWith("invalid")) {
+    } else if (answer.startsWith("invalid")) {
         handleInvalid(answer);
         question();
     } else {
         const parts = parseArgs(answer);
         const cmd = parts[0]?.toLowerCase();
-        switch (cmd) {
-            case "exit":
-                handleExit();
-                break;
-            case "echo":
-                handleEcho(answer);
-                question();
-                break;
-            case "type":
-                handleType(answer);
-                question();
-                break;
-            case "pwd":
-                handlePWD();
-                question();
-                break;
-            case "cd":
-                handleChangeDirectory(answer);
-                question();
-                break;
-            case "cat":
-                handleReadFile(answer);
-                question();
-                break;
-            default:
-                handleFile(answer);
-                question();
+        if (
+            answer.includes(">") ||
+            answer.includes(">>") ||
+            answer.includes("1>")
+        ) {
+            // Handle redirection
+            handleRedirect(answer);
+            question();
+        } else {
+            switch (cmd) {
+                case "exit":
+                    handleExit();
+                    break;
+                case "echo":
+                    handleEcho(answer);
+                    question();
+                    break;
+                case "type":
+                    handleType(answer);
+                    question();
+                    break;
+                case "pwd":
+                    handlePWD();
+                    question();
+                    break;
+                case "cd":
+                    handleChangeDirectory(answer);
+                    question();
+                    break;
+                case "cat":
+                    handleReadFile(answer);
+                    question();
+                    break;
+                default:
+                    handleFile(answer);
+                    question();
+            }
         }
     }
 }
