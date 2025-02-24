@@ -92,26 +92,19 @@ function handleRedirect(answer) {
     // Determine which redirection operator is present.
     let op = "";
     let opIndex = -1;
-    if (answer.indexOf(">>") !== -1) {
-        op = ">>";
-        opIndex = answer.indexOf(">>");
-    } else if (answer.indexOf("1>") !== -1) {
-        op = "1>";
-        opIndex = answer.indexOf("1>");
-    } else if (answer.indexOf(">") !== -1) {
-        op = ">";
-        opIndex = answer.indexOf(">");
-    } else {
-        // No redirection operator found; nothing to do.
-        return;
+    const operators = ["2>", ">>", "1>", ">"];
+    for (const operator of operators) {
+        opIndex = answer.indexOf(operator);
+        if (opIndex !== -1) {
+            op = operator;
+            break;
+        }
     }
+    if (opIndex === -1) return;
 
     // Split the input into three parts.
     const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
-
-    // For redirection, ">>" means append; "1>" and ">" both mean overwrite.
-    const flag = op === ">>" ? "a" : "w";
 
     // Parse the command part into command and arguments.
     const parts = parseArgs(commandPart);
@@ -119,67 +112,48 @@ function handleRedirect(answer) {
     const cmd = parts[0];
     const args = parts.slice(1);
 
-    // Execute the command and capture its stdout.
-    let output = "";
+    let result;
     try {
-        // We capture stdout and use 'pipe' for stderr so we can pass errors to console.
-        output = execFileSync(cmd, args, {
+        result = spawnSync(cmd, args, {
             encoding: "utf-8",
-            stdio: ["pipe", "pipe", "pipe"],
+            stdio: ["inherit", "pipe", "pipe"],
         });
     } catch (error) {
-        // If an error occurs (e.g. cat with one missing file), use any captured stdout.
-        output = error.stdout || "";
-        // Print any error message (stderr) to the console.
-        if (error.stderr) {
-            process.stderr.write(error.stderr);
-        }
+        result = {
+            stdout: "",
+            stderr: error.message,
+            status: error.status,
+        };
     }
 
-    // Write the captured output to the file.
-    try {
-        fs.writeFileSync(filename, output, { flag: flag });
-    } catch (err) {
-        if (err.code === "ENOENT") {
-            console.error(`cat: ${filename}: No such file or directory`);
-        } else {
-            console.error(`cat: ${filename}: Permission denied`);
-        }
+    let fileContent = "";
+    if (op === "2>") {
+        fileContent = result.stderr || "";
+        // Print stdout to console
+        if (result.stdout) process.stdout.write(result.stdout);
+    } else {
+        fileContent = result.stdout || "";
+        // Print stderr to console
+        if (result.stderr) process.stderr.write(result.stderr);
     }
-}
 
-function handleStderrRedirect(answer) {
-    const op = "2>";
-    const opIndex = answer.indexOf(op);
-    if (opIndex === -1) return;
-
-    const commandPart = answer.slice(0, opIndex).trim();
-    const filename = answer.slice(opIndex + op.length).trim();
-
-    const parts = parseArgs(commandPart);
-    if (parts.length === 0) return;
-
-    const cmd = parts[0];
-    const args = parts.slice(1);
-
-    // Use spawnSync to capture output.
-    const result = require("child_process").spawnSync(cmd, args, {
-        encoding: "utf-8",
-        stdio: "pipe",
-    });
-
-    // For commands like echo that normally write to stdout,
-    // redirect their stdout when using 2>.
-    const stderrOutput = result.stderr || "";
+    const dir = path.dirname(filename);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
 
     try {
-        fs.writeFileSync(filename, stderrOutput, { flag: "w" });
+        const flag = op === ">>" ? "a" : "w";
+        fs.writeFileSync(filename, fileContent, {
+            flag: flag,
+            mode: 0o644,
+        });
     } catch (err) {
-        if (err.code === "ENOENT") {
-            console.error(`${cmd}: ${filename}: No such file or directory`);
-        } else {
-            console.error(`${cmd}: ${filename}: Permission denied`);
-        }
+        const errorMsg =
+            op === "2>"
+                ? `${cmd}: ${filename}: ${err.message}\n`
+                : `cat: ${filename}: ${err.message}\n`;
+        process.stderr.write(errorMsg);
     }
 }
 
@@ -289,13 +263,11 @@ async function question() {
     } else {
         const parts = parseArgs(answer);
         const cmd = parts[0]?.toLowerCase();
-        if (answer.includes("2>")) {
-            handleStderrRedirect(answer);
-            question();
-        } else if (
+        if (
             answer.includes(">") ||
             answer.includes(">>") ||
-            answer.includes("1>")
+            answer.includes("1>") ||
+            answer.includes("2>")
         ) {
             // Handle redirection
             handleRedirect(answer);
