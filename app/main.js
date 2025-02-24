@@ -92,7 +92,7 @@ function handleRedirect(answer) {
     // Determine which redirection operator is present.
     let op = "";
     let opIndex = -1;
-    const operators = ["2>", ">>", "1>", ">"];
+    const operators = ["2>", ">>", "1>", ">", "1>>"];
     for (const operator of operators) {
         opIndex = answer.indexOf(operator);
         if (opIndex !== -1) {
@@ -143,7 +143,7 @@ function handleRedirect(answer) {
     }
 
     try {
-        const flag = op === ">>" ? "a" : "w";
+        const flag = op === ">>" || op === "1>>" ? "a" : "w";
         fs.writeFileSync(filename, fileContent, {
             flag: flag,
             mode: 0o644,
@@ -267,7 +267,8 @@ async function question() {
             answer.includes(">") ||
             answer.includes(">>") ||
             answer.includes("1>") ||
-            answer.includes("2>")
+            answer.includes("2>") ||
+            answer.includes("1>>")
         ) {
             // Handle redirection
             handleRedirect(answer);
