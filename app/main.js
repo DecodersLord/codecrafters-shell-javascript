@@ -88,7 +88,15 @@ function parseArgs(input) {
     return args;
 }
 
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("node:child_process");
+
+// Assume parseArgs is defined elsewhere in your project.
+// It should return an array of arguments parsed with proper quoting rules.
+
 function handleRedirect(answer) {
+    // Determine which redirection operator is present.
     let op = "";
     let opIndex = -1;
     if (answer.indexOf(">>") !== -1) {
@@ -100,12 +108,44 @@ function handleRedirect(answer) {
     } else if (answer.indexOf(">") !== -1) {
         op = ">";
         opIndex = answer.indexOf(">");
+    } else {
+        // No redirection operator found; nothing to do.
+        return;
     }
-    const command = answer.slice(0, opIndex).trim();
+
+    // Split the input into three parts.
+    const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
-    const fd = op === ">>" ? "a" : op === "1>" || op === ">" ? "w" : "w+";
+
+    // For redirection, ">>" means append; "1>" and ">" both mean overwrite.
+    const flag = op === ">>" ? "a" : "w";
+
+    // Parse the command part into command and arguments.
+    const parts = parseArgs(commandPart);
+    if (parts.length === 0) return;
+    const cmd = parts[0];
+    const args = parts.slice(1);
+
+    // Execute the command and capture its stdout.
+    let output = "";
     try {
-        fs.createWriteStream(filename, { flags: fd }).write(command);
+        // We capture stdout and use 'pipe' for stderr so we can pass errors to console.
+        output = execFileSync(cmd, args, {
+            encoding: "utf-8",
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+    } catch (error) {
+        // If an error occurs (e.g. cat with one missing file), use any captured stdout.
+        output = error.stdout || "";
+        // Print any error message (stderr) to the console.
+        if (error.stderr) {
+            process.stderr.write(error.stderr);
+        }
+    }
+
+    // Write the captured output to the file.
+    try {
+        fs.writeFileSync(filename, output, { flag: flag });
     } catch (err) {
         if (err.code === "ENOENT") {
             console.error(`cat: ${filename}: No such file or directory`);
