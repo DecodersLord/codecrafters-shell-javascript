@@ -88,13 +88,6 @@ function parseArgs(input) {
     return args;
 }
 
-const fs = require("fs");
-const path = require("path");
-const { execFileSync } = require("node:child_process");
-
-// Assume parseArgs is defined elsewhere in your project.
-// It should return an array of arguments parsed with proper quoting rules.
-
 function handleRedirect(answer) {
     // Determine which redirection operator is present.
     let op = "";
