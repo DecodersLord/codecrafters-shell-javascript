@@ -89,22 +89,24 @@ function parseArgs(input) {
 }
 
 function handleRedirect(answer) {
-    const operators = ["2>", "1>>", ">>", "1>", ">"];
+    // Parse the entire command first
     const parts = parseArgs(answer);
+
+    // Ordered by operator priority (longest first)
+    const operators = ["2>>", "1>>", "2>", "1>", ">>", ">"];
     let op = null;
     let opIndex = -1;
 
-    // Find first matching operator in parsed arguments
-    for (const operator of operators) {
-        opIndex = parts.indexOf(operator);
-        if (opIndex !== -1) {
-            op = operator;
-            break;
+    // Find last matching operator in parsed arguments
+    for (let i = 0; i < parts.length; i++) {
+        if (operators.includes(parts[i])) {
+            op = parts[i];
+            opIndex = i;
         }
     }
+
     if (opIndex === -1 || opIndex === parts.length - 1) return;
 
-    // Extract command and filename
     const filename = parts[opIndex + 1];
     const commandParts = parts.slice(0, opIndex);
     if (commandParts.length === 0) return;
@@ -120,14 +122,21 @@ function handleRedirect(answer) {
         stdio: ["inherit", "pipe", "pipe"],
     });
 
-    // Handle output
+    // Handle file output
     try {
+        // Ensure directory exists
         fs.mkdirSync(path.dirname(filename), { recursive: true });
-        fs.writeFileSync(
-            filename,
-            (isStderr ? result.stderr : result.stdout) || "",
-            { flag }
-        );
+
+        // Get content to write
+        const content = (isStderr ? result.stderr : result.stdout) || "";
+
+        // Write to file
+        if (content) {
+            fs.writeFileSync(filename, content, {
+                flag: flag,
+                mode: 0o644,
+            });
+        }
 
         // Print non-redirected output
         const consoleOutput = isStderr ? result.stdout : result.stderr;
