@@ -92,7 +92,7 @@ function handleRedirect(answer) {
     // Determine which redirection operator is present.
     let op = "";
     let opIndex = -1;
-    const operators = ["2>", ">>", "1>", ">", "1>>"];
+    const operators = ["2>", "1>>", ">>", "1>", ">"];
     for (const operator of operators) {
         opIndex = answer.indexOf(operator);
         if (opIndex !== -1) {
@@ -101,7 +101,7 @@ function handleRedirect(answer) {
         }
     }
     if (opIndex === -1) return;
-
+    console.log(op);
     // Split the input into three parts.
     const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
