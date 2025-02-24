@@ -152,17 +152,29 @@ function handleStderrRedirect(answer) {
     const op = "2>";
     const opIndex = answer.indexOf(op);
     if (opIndex === -1) return;
+
     const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
+
     const parts = parseArgs(commandPart);
     if (parts.length === 0) return;
+
     const cmd = parts[0];
     const args = parts.slice(1);
-    // Use spawnSync to capture stderr regardless of exit code.
-    const result = spawnSync(cmd, args, { encoding: "utf-8" });
-    const errOutput = result.stderr;
+
+    // Use spawnSync to capture output.
+    const result = require("child_process").spawnSync(cmd, args, {
+        encoding: "utf-8",
+        stdio: "pipe",
+    });
+
+    // For commands like echo that normally write to stdout,
+    // redirect their stdout when using 2>.
+    let outputForStderr =
+        cmd.toLowerCase() === "echo" ? result.stdout : result.stderr;
+
     try {
-        fs.writeFileSync(filename, errOutput, { flag: "w" });
+        fs.writeFileSync(filename, outputForStderr, { flag: "w" });
     } catch (err) {
         if (err.code === "ENOENT") {
             console.error(`${cmd}: ${filename}: No such file or directory`);
