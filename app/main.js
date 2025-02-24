@@ -114,7 +114,7 @@ function handleRedirect(answer) {
     // Determine operation parameters
     const isAppend = op.endsWith(">>");
     const isStderr = op.startsWith("2");
-    const flag = isAppend ? "a" : "w";
+    const flag = isAppend ? "a" : "w+";
 
     // Execute command
     const result = spawnSync(commandParts[0], commandParts.slice(1), {
