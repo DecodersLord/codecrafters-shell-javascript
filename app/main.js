@@ -124,27 +124,24 @@ function handleType(answer) {
     }
 }
 
-function handleFile(answer) {
-    const parts = parseArgs(answer);
-    // parts[0] is the executable name (which may contain spaces, quotes, or backslashes)
-    const executable = parts[0];
-    const args = parts.slice(1);
-    const paths = process.env.PATH.split(":");
-    for (const p of paths) {
-        let destPath = path.join(p, executable);
-        if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            try {
-                execFileSync(destPath, args, {
-                    encoding: "utf-8",
-                    stdio: "inherit",
-                });
-            } catch (error) {
-                // Silently ignore errors from the executed program.
+function handleReadFile(answer) {
+    const args = parseArgs(answer).slice(1); // Extract file paths (excluding "cat")
+    if (args.length === 0) {
+        console.error("cat: missing file operand");
+        return;
+    }
+    for (const filePath of args) {
+        try {
+            const data = fs.readFileSync(filePath, "utf-8");
+            process.stdout.write(data);
+        } catch (err) {
+            if (err.code === "ENOENT") {
+                console.error(`cat: ${filePath}: No such file or directory`);
+            } else {
+                console.error(`cat: ${filePath}: Permission denied`);
             }
-            return;
         }
     }
-    console.log(`${executable}: command not found`);
 }
 
 function handleReadFile(answer) {
