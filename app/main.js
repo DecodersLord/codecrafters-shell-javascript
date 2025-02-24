@@ -11,84 +11,89 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
-// A custom parseArgs that implements POSIX-like quoting:
-// - Outside quotes: a backslash always escapes the next character (and is removed).
-// - Inside double quotes: a backslash only escapes $, `, ", \, or newline;
-//   if it precedes any other character, the backslash is preserved.
+/**
+ * parseArgs: split the input into arguments following POSIX-like quoting rules.
+ *
+ * Rules:
+ * - Outside quotes, a backslash escapes the next character.
+ * - Inside double quotes, a backslash only escapes $, `, ", \, or newline.
+ * - Inside single quotes, everything is literal.
+ */
 function parseArgs(input) {
     let args = [];
-    let currentArg = [];
-    let inSingleQuotes = false;
-    let inDoubleQuotes = false;
+    let current = [];
+    let inSingle = false;
+    let inDouble = false;
     let escapeNext = false;
 
     for (let i = 0; i < input.length; i++) {
-        const char = input[i];
+        let ch = input[i];
 
         if (escapeNext) {
-            if (inDoubleQuotes) {
+            if (inDouble) {
                 // In double quotes, only these characters are specially escaped.
                 if (
-                    char === "$" ||
-                    char === "`" ||
-                    char === '"' ||
-                    char === "\\" ||
-                    char === "\n"
+                    ch === "$" ||
+                    ch === "`" ||
+                    ch === '"' ||
+                    ch === "\\" ||
+                    ch === "\n"
                 ) {
-                    // Backslash escapes these: do not preserve the backslash.
-                    currentArg.push(char);
+                    current.push(ch);
                 } else {
-                    // For any other character, the backslash is left in.
-                    currentArg.push("\\", char);
+                    // Otherwise, leave the backslash in.
+                    current.push("\\", ch);
                 }
             } else {
-                // Outside of double quotes (or in single quotes), backslash always escapes.
-                currentArg.push(char);
+                current.push(ch);
             }
             escapeNext = false;
             continue;
         }
 
-        if (char === "\\") {
-            // In single quotes, backslashes are literal.
-            if (inSingleQuotes) {
-                currentArg.push(char);
+        if (ch === "\\") {
+            // If in single quotes, backslash is literal.
+            if (inSingle) {
+                current.push(ch);
             } else {
                 escapeNext = true;
             }
             continue;
         }
 
-        if (char === "'" && !inDoubleQuotes) {
-            inSingleQuotes = !inSingleQuotes;
-            continue;
+        if (ch === "'" && !inDouble) {
+            inSingle = !inSingle;
+            continue; // do not include the outer single quotes
+        }
+        if (ch === '"' && !inSingle) {
+            inDouble = !inDouble;
+            continue; // do not include the outer double quotes
         }
 
-        if (char === '"' && !inSingleQuotes) {
-            inDoubleQuotes = !inDoubleQuotes;
-            continue;
-        }
-
-        if (char === " " && !inSingleQuotes && !inDoubleQuotes) {
-            if (currentArg.length > 0) {
-                args.push(currentArg.join(""));
-                currentArg = [];
+        if (ch === " " && !inSingle && !inDouble) {
+            if (current.length > 0) {
+                args.push(current.join(""));
+                current = [];
             }
             continue;
         }
 
-        currentArg.push(char);
+        current.push(ch);
     }
 
-    if (currentArg.length > 0) {
-        args.push(currentArg.join(""));
+    if (current.length > 0) {
+        args.push(current.join(""));
     }
+
     return args;
 }
 
+// ----- Command Handlers -----
+
 function handleEcho(answer) {
-    const args = parseArgs(answer).slice(1); // Remove "echo" command
-    const output = args.join(" ");
+    const parts = parseArgs(answer);
+    // parts[0] is "echo"; join the rest with a space.
+    const output = parts.slice(1).join(" ");
     rl.write(`${output}\n`);
 }
 
@@ -101,14 +106,15 @@ function handleExit() {
 }
 
 function handleType(answer) {
-    const command = answer.split(" ")[1];
-    const commands = ["exit", "echo", "type", "pwd"];
-    if (commands.includes(command.toLowerCase())) {
+    const parts = parseArgs(answer);
+    const command = parts[1];
+    const builtins = ["exit", "echo", "type", "pwd"];
+    if (builtins.includes(command.toLowerCase())) {
         rl.write(`${command} is a shell builtin\n`);
     } else {
         const paths = process.env.PATH.split(":");
-        for (const pathEnv of paths) {
-            let destPath = path.join(pathEnv, command);
+        for (const p of paths) {
+            let destPath = path.join(p, command);
             if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
                 rl.write(`${command} is ${destPath}\n`);
                 return;
@@ -119,22 +125,31 @@ function handleType(answer) {
 }
 
 function handleFile(answer) {
-    const fileName = answer.split(" ")[0];
-    const args = answer.split(" ").slice(1);
+    const parts = parseArgs(answer);
+    // parts[0] is the executable name (which may contain spaces, quotes, or backslashes)
+    const executable = parts[0];
+    const args = parts.slice(1);
     const paths = process.env.PATH.split(":");
-    for (const pathEnv of paths) {
-        let destPath = path.join(pathEnv, fileName);
+    for (const p of paths) {
+        let destPath = path.join(p, executable);
         if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            execFileSync(fileName, args, {
-                encoding: "utf-8",
-                stdio: "inherit",
-            });
+            try {
+                execFileSync(destPath, args, {
+                    encoding: "utf-8",
+                    stdio: "inherit",
+                });
+            } catch (error) {
+                // Silently ignore errors from the executed program.
+            }
+            return;
         }
     }
+    console.log(`${executable}: command not found`);
 }
 
 function handleReadFile(answer) {
-    const args = parseArgs(answer).slice(1); // Extract file paths after "cat"
+    const parts = parseArgs(answer);
+    const args = parts.slice(1);
     if (args.length === 0) {
         console.error("cat: missing file operand");
         return;
@@ -158,7 +173,8 @@ function handlePWD() {
 }
 
 function handleChangeDirectory(answer) {
-    const directory = answer.split(" ")[1];
+    const parts = parseArgs(answer);
+    const directory = parts[1];
     try {
         if (directory === "~") {
             process.chdir(HOMEDIR);
@@ -171,14 +187,17 @@ function handleChangeDirectory(answer) {
     }
 }
 
+// ----- Main REPL Loop -----
+
 async function question() {
     const answer = await rl.question("$ ");
-
     if (answer.startsWith("invalid")) {
         handleInvalid(answer);
         question();
     } else {
-        switch (answer.split(" ")[0].toLowerCase()) {
+        const parts = parseArgs(answer);
+        const cmd = parts[0]?.toLowerCase();
+        switch (cmd) {
             case "exit":
                 handleExit();
                 break;
