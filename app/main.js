@@ -101,7 +101,7 @@ function handleRedirect(answer) {
         }
     }
     if (opIndex === -1) return;
-    console.log(op);
+    //console.log(op);
     // Split the input into three parts.
     const commandPart = answer.slice(0, opIndex).trim();
     const filename = answer.slice(opIndex + op.length).trim();
