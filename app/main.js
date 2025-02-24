@@ -125,22 +125,20 @@ function handleType(answer) {
 }
 
 function handleFile(answer) {
+    // Use parseArgs to handle any quoting in the command name
     const parts = parseArgs(answer);
-    // parts[0] is the executable name (which may contain spaces, quotes, or backslashes)
-    const executable = parts[0];
+    const executable = parts[0]; // the command name (may be quoted)
     const args = parts.slice(1);
     const paths = process.env.PATH.split(":");
-    for (const p of paths) {
-        let destPath = path.join(p, executable);
+    for (const pathEnv of paths) {
+        let destPath = path.join(pathEnv, executable);
         if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            try {
-                execFileSync(destPath, args, {
-                    encoding: "utf-8",
-                    stdio: "inherit",
-                });
-            } catch (error) {
-                // Silently ignore errors from the executed program.
-            }
+            // Use argv0 option so that the child process sees the bare command name.
+            execFileSync(destPath, args, {
+                encoding: "utf-8",
+                stdio: "inherit",
+                argv0: executable,
+            });
             return;
         }
     }
