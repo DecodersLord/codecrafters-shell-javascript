@@ -89,71 +89,55 @@ function parseArgs(input) {
 }
 
 function handleRedirect(answer) {
-    // Determine which redirection operator is present.
-    let op = "";
-    let opIndex = -1;
     const operators = ["2>", "1>>", ">>", "1>", ">"];
+    const parts = parseArgs(answer);
+    let op = null;
+    let opIndex = -1;
+
+    // Find first matching operator in parsed arguments
     for (const operator of operators) {
-        opIndex = answer.indexOf(operator);
+        opIndex = parts.indexOf(operator);
         if (opIndex !== -1) {
             op = operator;
             break;
         }
     }
-    if (opIndex === -1) return;
-    //console.log(op);
-    // Split the input into three parts.
-    const commandPart = answer.slice(0, opIndex).trim();
-    const filename = answer.slice(opIndex + op.length).trim();
+    if (opIndex === -1 || opIndex === parts.length - 1) return;
 
-    // Parse the command part into command and arguments.
-    const parts = parseArgs(commandPart);
-    if (parts.length === 0) return;
-    const cmd = parts[0];
-    const args = parts.slice(1);
+    // Extract command and filename
+    const filename = parts[opIndex + 1];
+    const commandParts = parts.slice(0, opIndex);
+    if (commandParts.length === 0) return;
 
-    let result;
+    // Determine operation parameters
+    const isAppend = op.endsWith(">>");
+    const isStderr = op.startsWith("2");
+    const flag = isAppend ? "a" : "w";
+
+    // Execute command
+    const result = spawnSync(commandParts[0], commandParts.slice(1), {
+        encoding: "utf-8",
+        stdio: ["inherit", "pipe", "pipe"],
+    });
+
+    // Handle output
     try {
-        result = spawnSync(cmd, args, {
-            encoding: "utf-8",
-            stdio: ["inherit", "pipe", "pipe"],
-        });
-    } catch (error) {
-        result = {
-            stdout: "",
-            stderr: error.message,
-            status: error.status,
-        };
-    }
+        fs.mkdirSync(path.dirname(filename), { recursive: true });
+        fs.writeFileSync(
+            filename,
+            (isStderr ? result.stderr : result.stdout) || "",
+            { flag }
+        );
 
-    let fileContent = "";
-    if (op === "2>") {
-        fileContent = result.stderr || "";
-        // Print stdout to console
-        if (result.stdout) process.stdout.write(result.stdout);
-    } else {
-        fileContent = result.stdout || "";
-        // Print stderr to console
-        if (result.stderr) process.stderr.write(result.stderr);
-    }
-
-    const dir = path.dirname(filename);
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-
-    try {
-        const flag = op === ">>" || op === "1>>" ? "a" : "w";
-        fs.writeFileSync(filename, fileContent, {
-            flag: flag,
-            mode: 0o644,
-        });
+        // Print non-redirected output
+        const consoleOutput = isStderr ? result.stdout : result.stderr;
+        if (consoleOutput) {
+            process[isStderr ? "stdout" : "stderr"].write(consoleOutput);
+        }
     } catch (err) {
-        const errorMsg =
-            op === "2>"
-                ? `${cmd}: ${filename}: ${err.message}\n`
-                : `cat: ${filename}: ${err.message}\n`;
-        process.stderr.write(errorMsg);
+        process.stderr.write(
+            `${commandParts[0]}: ${filename}: ${err.message}\n`
+        );
     }
 }
 
