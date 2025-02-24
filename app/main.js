@@ -2,7 +2,7 @@ const readline = require("readline/promises");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 
 const HOMEDIR = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
@@ -278,7 +278,7 @@ async function question() {
     } else {
         const parts = parseArgs(answer);
         const cmd = parts[0]?.toLowerCase();
-        if (answer.startsWith("2>")) {
+        if (answer.includes("2>")) {
             handleStderrRedirect(answer);
             question();
         } else if (
