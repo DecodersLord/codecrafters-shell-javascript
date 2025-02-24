@@ -272,16 +272,16 @@ function handleChangeDirectory(answer) {
 
 async function question() {
     const answer = await rl.question("$ ");
-    if (answer.startsWith("2>")) {
-        handleStderrRedirect(answer);
-        question();
-    } else if (answer.startsWith("invalid")) {
+    if (answer.startsWith("invalid")) {
         handleInvalid(answer);
         question();
     } else {
         const parts = parseArgs(answer);
         const cmd = parts[0]?.toLowerCase();
-        if (
+        if (answer.startsWith("2>")) {
+            handleStderrRedirect(answer);
+            question();
+        } else if (
             answer.includes(">") ||
             answer.includes(">>") ||
             answer.includes("1>")
