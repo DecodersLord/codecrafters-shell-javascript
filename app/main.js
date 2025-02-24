@@ -170,11 +170,10 @@ function handleStderrRedirect(answer) {
 
     // For commands like echo that normally write to stdout,
     // redirect their stdout when using 2>.
-    let outputForStderr =
-        cmd.toLowerCase() === "echo" ? result.stdout : result.stderr;
+    const stderrOutput = result.stderr || "";
 
     try {
-        fs.writeFileSync(filename, outputForStderr, { flag: "w" });
+        fs.writeFileSync(filename, stderrOutput, { flag: "w" });
     } catch (err) {
         if (err.code === "ENOENT") {
             console.error(`${cmd}: ${filename}: No such file or directory`);
