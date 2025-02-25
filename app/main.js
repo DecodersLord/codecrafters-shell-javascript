@@ -303,7 +303,6 @@ rl.on("line", handleInput);
 
 // Optionally handle close event:
 rl.on("close", () => {
-    console.log("Exiting shell.");
     process.exit(0);
 });
 
