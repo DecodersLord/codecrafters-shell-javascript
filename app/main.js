@@ -14,15 +14,46 @@ const rl = readline.createInterface({
 });
 
 function completer(line) {
-    const completions = ["exit", "echo", "type", "pwd", "cd"];
-    const hits = completions.filter((c) => c.startsWith(line));
+    const builtins = ["exit", "echo", "type", "pwd", "cd", "cat"];
+    const paths = process.env.PATH.split(":");
+    const executables = new Set();
 
-    if (hits.length === 0) {
-        process.stdout.write(`\x07`);
-        return [[], line];
+    // Collect executable files from PATH directories
+    for (const dir of paths) {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                try {
+                    // Check if the file is executable
+                    fs.accessSync(fullPath, fs.constants.X_OK);
+                    const stats = fs.statSync(fullPath);
+                    if (stats.isFile()) {
+                        executables.add(file);
+                    }
+                } catch (e) {
+                    // Skip non-executable files
+                }
+            }
+        } catch (e) {
+            // Skip inaccessible directories
+        }
     }
-    // Otherwise, return all hits (or completions if no hits)
-    return [hits.length ? hits.map((h) => h + " ") : completions, line];
+
+    // Combine built-ins and executables, removing duplicates
+    const allCommands = [...builtins, ...executables];
+    const currentInput = line.trim();
+
+    // Filter commands that start with the current input
+    const hits = allCommands.filter((cmd) => cmd.startsWith(currentInput));
+
+    // Append space to each completion
+    const completions =
+        hits.length > 0
+            ? hits.map((cmd) => cmd + " ")
+            : allCommands.map((cmd) => cmd + " ");
+
+    return [completions, line];
 }
 
 /**
