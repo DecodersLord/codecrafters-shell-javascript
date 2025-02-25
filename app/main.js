@@ -16,67 +16,89 @@ const rl = readline.createInterface({
 let lastTabInput = "";
 let tabPressCount = 0;
 
-function getExecutables() {
-    const paths = process.env.PATH.split(":");
-    const executables = new Set();
-
-    for (const dir of paths) {
-        try {
-            const files = fs.readdirSync(dir);
-            files.forEach((file) => {
-                const fullPath = path.join(dir, file);
-                try {
-                    if (
-                        fs.statSync(fullPath).isFile() &&
-                        fs.accessSync(fullPath, fs.constants.X_OK) === undefined
-                    ) {
-                        executables.add(file);
-                    }
-                } catch (e) {
-                    // Ignore non-executable files
-                }
-            });
-        } catch (e) {
-            // Ignore unreadable directories
+function longestCommonPrefix(strings) {
+    if (strings.length === 0) return "";
+    let prefix = strings[0];
+    for (let i = 1; i < strings.length; i++) {
+        while (strings[i].indexOf(prefix) !== 0) {
+            prefix = prefix.slice(0, -1);
+            if (prefix === "") return "";
         }
     }
-    return Array.from(executables);
+    return prefix;
 }
 
 function completer(line) {
-    const currentInput = line.trim();
     const builtins = ["exit", "echo", "type", "pwd", "cd", "cat"];
-    const executables = getExecutables();
-    const allCommands = [...builtins, ...executables];
+    const paths = process.env.PATH.split(":");
+    const executables = new Set();
 
-    const matches = allCommands
-        .filter((cmd) => cmd.startsWith(currentInput))
-        .sort();
-
-    // Handle multiple matches
-    if (matches.length > 1) {
-        if (currentInput === lastTabInput && tabPressCount === 1) {
-            // Second TAB: show matches
-            process.stdout.write("\n" + matches.join(" ") + "\n");
-            rl.prompt(true);
-            lastTabInput = "";
-            tabPressCount = 0;
-            return [[], line];
-        } else {
-            // First TAB: ring bell
-            process.stdout.write("\x07");
-            lastTabInput = currentInput;
-            tabPressCount = 1;
-            return [[], line];
+    // Collect executable files from PATH directories
+    for (const dir of paths) {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                try {
+                    fs.accessSync(fullPath, fs.constants.X_OK);
+                    const stats = fs.statSync(fullPath);
+                    if (stats.isFile()) {
+                        executables.add(file);
+                    }
+                } catch (e) {
+                    // Skip non-executable files
+                }
+            }
+        } catch (e) {
+            // Skip inaccessible directories
         }
     }
 
-    // Reset state for non-multiple matches
-    lastTabInput = "";
-    tabPressCount = 0;
+    const allCommands = [...builtins, ...executables].sort();
+    const currentInput = line.trim();
+    const hits = allCommands
+        .filter((cmd) => cmd.startsWith(currentInput))
+        .sort();
 
-    // Handle single/no matches
-    return [matches.length === 1 ? [matches[0]] : [], line];
+    if (hits.length === 0) {
+        process.stdout.write("\x07");
+        return [[], line];
+    }
+
+    const lcp = longestCommonPrefix(hits);
+
+    if (lcp.length > currentInput.length) {
+        const hasLongerCommands = hits.some(
+            (cmd) => cmd.startsWith(lcp) && cmd.length > lcp.length
+        );
+        if (hasLongerCommands) {
+            // Complete to LCP without space
+            return [[lcp], line];
+        } else {
+            // Complete to LCP with space
+            return [[lcp + " "], line];
+        }
+    } else {
+        if (hits.length === 1) {
+            return [[hits[0] + " "], line];
+        } else {
+            // Handle multiple matches
+            if (currentInput === lastTabInput && tabPressCount === 1) {
+                // Show matches
+                process.stdout.write("\n" + hits.join("  ") + "\n");
+                rl.prompt(true);
+                lastTabInput = "";
+                tabPressCount = 0;
+                return [[], line];
+            } else {
+                // Ring bell for first tab
+                process.stdout.write("\x07");
+                lastTabInput = currentInput;
+                tabPressCount = 1;
+                return [[], line];
+            }
+        }
+    }
 }
 
 /**
