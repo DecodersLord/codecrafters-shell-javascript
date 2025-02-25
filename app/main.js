@@ -76,7 +76,7 @@ function completer(line) {
     tabPressCount = 0;
 
     // Handle single/no matches
-    return [matches.length === 1 ? [matches[0] + " "] : [], line];
+    return [matches.length === 1 ? [matches[0]] : [], line];
 }
 
 /**
