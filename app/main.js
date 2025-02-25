@@ -13,51 +13,70 @@ const rl = readline.createInterface({
     prompt: "$ ",
 });
 
-function completer(line) {
-    const builtins = ["exit", "echo", "type", "pwd", "cd", "cat"];
+let lastTabInput = "";
+let tabPressCount = 0;
+
+function getExecutables() {
     const paths = process.env.PATH.split(":");
     const executables = new Set();
 
-    // Collect executable files from PATH directories
     for (const dir of paths) {
         try {
             const files = fs.readdirSync(dir);
-            for (const file of files) {
+            files.forEach((file) => {
                 const fullPath = path.join(dir, file);
                 try {
-                    // Check if the file is executable
-                    fs.accessSync(fullPath, fs.constants.X_OK);
-                    const stats = fs.statSync(fullPath);
-                    if (stats.isFile()) {
+                    if (
+                        fs.statSync(fullPath).isFile() &&
+                        fs.accessSync(fullPath, fs.constants.X_OK) === undefined
+                    ) {
                         executables.add(file);
                     }
                 } catch (e) {
-                    // Skip non-executable files
+                    // Ignore non-executable files
                 }
-            }
+            });
         } catch (e) {
-            // Skip inaccessible directories
+            // Ignore unreadable directories
+        }
+    }
+    return Array.from(executables);
+}
+
+function completer(line) {
+    const currentInput = line.trim();
+    const builtins = ["exit", "echo", "type", "pwd", "cd", "cat"];
+    const executables = getExecutables();
+    const allCommands = [...builtins, ...executables];
+
+    const matches = allCommands
+        .filter((cmd) => cmd.startsWith(currentInput))
+        .sort();
+
+    // Handle multiple matches
+    if (matches.length > 1) {
+        if (currentInput === lastTabInput && tabPressCount === 1) {
+            // Second TAB: show matches
+            process.stdout.write("\n" + matches.join("  ") + "\n");
+            rl.prompt(true);
+            lastTabInput = "";
+            tabPressCount = 0;
+            return [[], line];
+        } else {
+            // First TAB: ring bell
+            process.stdout.write("\x07");
+            lastTabInput = currentInput;
+            tabPressCount = 1;
+            return [[], line];
         }
     }
 
-    // Combine built-ins and executables, removing duplicates
-    const allCommands = [...builtins, ...executables];
-    const currentInput = line.trim();
+    // Reset state for non-multiple matches
+    lastTabInput = "";
+    tabPressCount = 0;
 
-    // Filter commands that start with the current input
-    const hits = allCommands.filter((cmd) => cmd.startsWith(currentInput));
-
-    if (hits.length === 0) {
-        process.stdout.write(`\x07`);
-        return [[], line];
-    }
-    // Append space to each completion
-    const completions =
-        hits.length > 0
-            ? hits.map((cmd) => cmd + " ")
-            : allCommands.map((cmd) => cmd + " ");
-
-    return [completions, line];
+    // Handle single/no matches
+    return [matches.length === 1 ? [matches[0] + " "] : [], line];
 }
 
 /**
