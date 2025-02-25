@@ -256,6 +256,7 @@ function handleInput(line) {
     if (line.startsWith("invalid")) {
         handleInvalid(line);
         rl.prompt();
+        return;
     }
 
     // If the command contains a redirection operator:
