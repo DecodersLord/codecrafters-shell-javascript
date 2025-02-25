@@ -159,9 +159,9 @@ function handleRedirect(answer) {
 
 function handleEcho(answer) {
     const parts = parseArgs(answer);
-    // parts[0] is "echo"; join the rest with a space.
     const output = parts.slice(1).join(" ");
-    rl.write(`${output}\n`);
+    // Use process.stdout instead of rl.write
+    process.stdout.write(output + "\n");
 }
 
 function handleInvalid(answer) {
@@ -259,42 +259,40 @@ function handleInput(line) {
         return;
     }
 
-    // If the command contains a redirection operator:
-    else {
-        const parts = parseArgs(line);
-        const cmd = parts[0]?.toLowerCase();
-        if (
-            line.includes(">") ||
-            line.includes(">>") ||
-            line.includes("1>") ||
-            line.includes("2>") ||
-            line.includes("1>>")
-        ) {
-            // Handle redirection
-            handleRedirect(line);
-        } else {
-            switch (cmd) {
-                case "exit":
-                    handleExit();
-                    break;
-                case "echo":
-                    handleEcho(line);
-                    break;
-                case "type":
-                    handleType(line);
-                    break;
-                case "pwd":
-                    handlePWD();
-                    break;
-                case "cd":
-                    handleChangeDirectory(line);
-                    break;
-                case "cat":
-                    handleReadFile(line);
-                    break;
-                default:
-                    handleFile(line);
-            }
+    const parts = parseArgs(line);
+    if (parts.length === 0) {
+        rl.prompt();
+        return;
+    }
+
+    const cmd = parts[0]?.toLowerCase();
+    const redirectOperators = ["2>>", "1>>", "2>", "1>", ">>", ">"];
+    const foundOperator = redirectOperators.find((op) => parts.includes(op));
+
+    if (foundOperator) {
+        handleRedirect(line);
+    } else {
+        switch (cmd) {
+            case "exit":
+                handleExit();
+                break;
+            case "echo":
+                handleEcho(line);
+                break;
+            case "type":
+                handleType(line);
+                break;
+            case "pwd":
+                handlePWD();
+                break;
+            case "cd":
+                handleChangeDirectory(line);
+                break;
+            case "cat":
+                handleReadFile(line);
+                break;
+            default:
+                handleFile(line);
         }
     }
 
