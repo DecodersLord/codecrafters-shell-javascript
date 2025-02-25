@@ -6,15 +6,15 @@ const { execFileSync, spawnSync } = require("node:child_process");
 
 const HOMEDIR = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
+let lastTabInput = "";
+let tabPressCount = 0;
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     completer: completer,
     prompt: "$ ",
 });
-
-let lastTabInput = "";
-let tabPressCount = 0;
 
 function longestCommonPrefix(strings) {
     if (strings.length === 0) return "";
