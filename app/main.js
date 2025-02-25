@@ -9,7 +9,15 @@ const HOMEDIR = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
+    completer: completer,
+    prompt: "$ ",
 });
+
+function completer(line) {
+    const completions = ["exit", "echo", "type", "pwd", "cd"];
+    const hits = completions.filter((c) => c.startsWith(line));
+    return [hits.length ? hits : completions, line];
+}
 
 /**
  * parseArgs: split the input into arguments following POSIX-like quoting rules.
@@ -245,54 +253,73 @@ function handleChangeDirectory(answer) {
 // ----- Main REPL Loop -----
 
 async function question() {
-    const answer = await rl.question("$ ");
-    if (answer.startsWith("invalid")) {
-        handleInvalid(answer);
-        question();
-    } else {
-        const parts = parseArgs(answer);
-        const cmd = parts[0]?.toLowerCase();
-        if (
-            answer.includes(">") ||
-            answer.includes(">>") ||
-            answer.includes("1>") ||
-            answer.includes("2>") ||
-            answer.includes("1>>")
-        ) {
-            // Handle redirection
-            handleRedirect(answer);
-            question();
-        } else {
-            switch (cmd) {
-                case "exit":
-                    handleExit();
-                    break;
-                case "echo":
-                    handleEcho(answer);
-                    question();
-                    break;
-                case "type":
-                    handleType(answer);
-                    question();
-                    break;
-                case "pwd":
-                    handlePWD();
-                    question();
-                    break;
-                case "cd":
-                    handleChangeDirectory(answer);
-                    question();
-                    break;
-                case "cat":
-                    handleReadFile(answer);
-                    question();
-                    break;
-                default:
-                    handleFile(answer);
-                    question();
-            }
+    rl.prompt();
+
+    // Attach a one-time event listener (it remains active)
+    rl.on("line", (line) => {
+        if (line.startsWith("invalid")) {
+            handleInvalid(line);
+            rl.prompt();
+            return;
         }
-    }
+
+        // If the command contains a redirection operator:
+        if (
+            line.includes(">>") ||
+            line.includes("1>") ||
+            line.includes("2>") ||
+            (line.includes(">") && !line.includes("2>"))
+        ) {
+            // We assume that handleRedirect handles both stdout and stderr redirection as needed.
+            // (You might want to separate them depending on your implementation.)
+            // For example, if 2> is detected, call handleStderrRedirect.
+            if (line.includes("2>")) {
+                handleStderrRedirect(line);
+            } else {
+                handleRedirect(line);
+            }
+            rl.prompt();
+            return;
+        }
+
+        const parts = parseArgs(line);
+        const cmd = parts[0]?.toLowerCase();
+
+        switch (cmd) {
+            case "exit":
+                handleExit();
+                break;
+            case "echo":
+                handleEcho(line);
+                rl.prompt();
+                break;
+            case "type":
+                handleType(line);
+                rl.prompt();
+                break;
+            case "pwd":
+                handlePWD();
+                rl.prompt();
+                break;
+            case "cd":
+                handleChangeDirectory(line);
+                rl.prompt();
+                break;
+            case "cat":
+                handleReadFile(line);
+                rl.prompt();
+                break;
+            default:
+                handleFile(line);
+                rl.prompt();
+        }
+    });
+
+    // Optionally handle close event:
+    rl.on("close", () => {
+        console.log("Exiting shell.");
+        process.exit(0);
+    });
 }
 
 question();
