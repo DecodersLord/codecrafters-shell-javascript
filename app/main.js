@@ -16,6 +16,27 @@ const rl = readline.createInterface({
     prompt: "$ ",
 });
 
+const commandRegistry = {
+    exit: handleExit,
+    echo: handleEcho,
+    type: handleType,
+    pwd: handlePWD,
+    cd: handleChangeDirectory,
+    cat: handleReadFile,
+};
+
+function isValidBuiltin(command) {
+    return command in commandRegistry;
+}
+
+function isValidExternal(command) {
+    const paths = process.env.PATH.split(":");
+    return paths.some((dir) => {
+        const fullPath = path.join(dir, command);
+        return fs.existsSync(fullPath) && fs.statSync(fullPath).isFile();
+    });
+}
+
 function longestCommonPrefix(strings) {
     if (strings.length === 0) return "";
     let prefix = strings[0];
@@ -315,49 +336,41 @@ function handleChangeDirectory(answer) {
 
 // Attach a one-time event listener (it remains active)
 function handleInput(line) {
-    if (line.startsWith("invalid")) {
-        handleInvalid(line);
-        rl.prompt();
-        return;
-    }
-
     const parts = parseArgs(line);
     if (parts.length === 0) {
         rl.prompt();
         return;
     }
 
-    const cmd = parts[0]?.toLowerCase();
-    const redirectOperators = ["2>>", "1>>", "2>", "1>", ">>", ">"];
-    const foundOperator = redirectOperators.find((op) => parts.includes(op));
+    const [command, ...args] = parts;
+    const lowerCommand = command.toLowerCase();
 
-    if (foundOperator) {
+    // Handle redirection first
+    const redirectOperatorIndex = args.findIndex((arg) =>
+        ["2>>", "1>>", "2>", "1>", ">>", ">"].includes(arg)
+    );
+
+    if (redirectOperatorIndex !== -1) {
         handleRedirect(line);
-    } else {
-        switch (cmd) {
-            case "exit":
-                handleExit();
-                break;
-            case "echo":
-                handleEcho(line);
-                break;
-            case "type":
-                handleType(line);
-                break;
-            case "pwd":
-                handlePWD();
-                break;
-            case "cd":
-                handleChangeDirectory(line);
-                break;
-            case "cat":
-                handleReadFile(line);
-                break;
-            default:
-                handleFile(line);
-        }
+        rl.prompt();
+        return;
     }
 
+    // Handle valid commands
+    if (isValidBuiltin(lowerCommand)) {
+        commandRegistry[lowerCommand](line);
+        rl.prompt();
+        return;
+    }
+
+    if (isValidExternal(command)) {
+        handleFile(line);
+        rl.prompt();
+        return;
+    }
+
+    // Fallback to invalid command
+    handleInvalid(command);
     rl.prompt();
 }
 
