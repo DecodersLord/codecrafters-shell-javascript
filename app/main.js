@@ -245,7 +245,7 @@ function handleChangeDirectory(answer) {
         } else {
             process.chdir(directory);
         }
-        question();
+        rl.prompt();
     } catch (err) {
         rl.write(`cd: ${directory}: No such file or directory\n`);
     }
