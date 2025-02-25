@@ -160,12 +160,12 @@ function handleRedirect(answer) {
 function handleEcho(answer) {
     const parts = parseArgs(answer);
     const output = parts.slice(1).join(" ");
-    // Use process.stdout instead of rl.write
+    // Use process.stdout instead of rl.write()
     process.stdout.write(output + "\n");
 }
 
 function handleInvalid(answer) {
-    rl.write(`${answer}: command not found\n`);
+    process.stdout.write(`${answer}: command not found\n`);
 }
 
 function handleExit() {
@@ -177,17 +177,17 @@ function handleType(answer) {
     const command = parts[1];
     const builtins = ["exit", "echo", "type", "pwd"];
     if (builtins.includes(command.toLowerCase())) {
-        rl.write(`${command} is a shell builtin\n`);
+        process.stdout.write(`${command} is a shell builtin\n`);
     } else {
         const paths = process.env.PATH.split(":");
         for (const p of paths) {
             let destPath = path.join(p, command);
             if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-                rl.write(`${command} is ${destPath}\n`);
+                process.stdout.write(`${command} is ${destPath}\n`);
                 return;
             }
         }
-        rl.write(`${command}: not found\n`);
+        process.stdout.write(`${command}: not found\n`);
     }
 }
 
@@ -233,7 +233,7 @@ function handleReadFile(answer) {
 }
 
 function handlePWD() {
-    rl.write(`${process.cwd()}\n`);
+    process.stdout.write(`${process.cwd()}\n`);
 }
 
 function handleChangeDirectory(answer) {
@@ -247,7 +247,7 @@ function handleChangeDirectory(answer) {
         }
         rl.prompt();
     } catch (err) {
-        rl.write(`cd: ${directory}: No such file or directory\n`);
+        process.stdout.write(`cd: ${directory}: No such file or directory\n`);
     }
 }
 
