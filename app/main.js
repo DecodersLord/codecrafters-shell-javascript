@@ -47,6 +47,10 @@ function completer(line) {
     // Filter commands that start with the current input
     const hits = allCommands.filter((cmd) => cmd.startsWith(currentInput));
 
+    if (hits.length === 0) {
+        process.stdout.write(`\x07`);
+        return [[], line];
+    }
     // Append space to each completion
     const completions =
         hits.length > 0
