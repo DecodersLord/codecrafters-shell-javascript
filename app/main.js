@@ -16,6 +16,11 @@ const rl = readline.createInterface({
 function completer(line) {
     const completions = ["exit", "echo", "type", "pwd", "cd"];
     const hits = completions.filter((c) => c.startsWith(line));
+
+    if (hits.length === 0) {
+        process.stdout.write(`\x07`);
+        return [[], line];
+    }
     // Otherwise, return all hits (or completions if no hits)
     return [hits.length ? hits.map((h) => h + " ") : completions, line];
 }
