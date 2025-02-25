@@ -16,12 +16,8 @@ const rl = readline.createInterface({
 function completer(line) {
     const completions = ["exit", "echo", "type", "pwd", "cd"];
     const hits = completions.filter((c) => c.startsWith(line));
-    if (hits.length === 1 && hits[0] === line) {
-        // If the input exactly matches one command, return that with a trailing space.
-        return [[hits[0] + " "], line];
-    }
     // Otherwise, return all hits (or completions if no hits)
-    return [hits.length ? hits : completions, line];
+    return [hits.length ? hits.map((h) => h + " ") : completions, line];
 }
 
 /**
