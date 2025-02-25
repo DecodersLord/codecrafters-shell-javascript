@@ -209,7 +209,7 @@ function handleFile(answer) {
             return;
         }
     }
-    console.log(`${executable}: command not found`);
+    //console.log(`${executable}: command not found`);
 }
 
 function handleReadFile(answer) {
@@ -251,76 +251,62 @@ function handleChangeDirectory(answer) {
     }
 }
 
-// ----- Main REPL Loop -----
+// Attach a one-time event listener (it remains active)
+function handleInput(line) {
+    if (line.startsWith("invalid")) {
+        handleInvalid(line);
+        rl.prompt();
+    }
 
-async function question() {
-    rl.prompt();
-
-    // Attach a one-time event listener (it remains active)
-    rl.on("line", (line) => {
-        if (line.startsWith("invalid")) {
-            handleInvalid(line);
-            rl.prompt();
-            return;
-        }
-
-        // If the command contains a redirection operator:
+    // If the command contains a redirection operator:
+    else {
+        const parts = parseArgs(line);
+        const cmd = parts[0]?.toLowerCase();
         if (
+            line.includes(">") ||
             line.includes(">>") ||
             line.includes("1>") ||
             line.includes("2>") ||
-            (line.includes(">") && !line.includes("2>"))
+            line.includes("1>>")
         ) {
-            // We assume that handleRedirect handles both stdout and stderr redirection as needed.
-            // (You might want to separate them depending on your implementation.)
-            // For example, if 2> is detected, call handleStderrRedirect.
-            if (line.includes("2>")) {
-                handleStderrRedirect(line);
-            } else {
-                handleRedirect(line);
+            // Handle redirection
+            handleRedirect(line);
+        } else {
+            switch (cmd) {
+                case "exit":
+                    handleExit();
+                    break;
+                case "echo":
+                    handleEcho(line);
+                    break;
+                case "type":
+                    handleType(line);
+                    break;
+                case "pwd":
+                    handlePWD();
+                    break;
+                case "cd":
+                    handleChangeDirectory(line);
+                    break;
+                case "cat":
+                    handleReadFile(line);
+                    break;
+                default:
+                    handleFile(line);
             }
-            rl.prompt();
-            return;
         }
+    }
 
-        const parts = parseArgs(line);
-        const cmd = parts[0]?.toLowerCase();
-
-        switch (cmd) {
-            case "exit":
-                handleExit();
-                break;
-            case "echo":
-                handleEcho(line);
-                rl.prompt();
-                break;
-            case "type":
-                handleType(line);
-                rl.prompt();
-                break;
-            case "pwd":
-                handlePWD();
-                rl.prompt();
-                break;
-            case "cd":
-                handleChangeDirectory(line);
-                rl.prompt();
-                break;
-            case "cat":
-                handleReadFile(line);
-                rl.prompt();
-                break;
-            default:
-                handleFile(line);
-                rl.prompt();
-        }
-    });
-
-    // Optionally handle close event:
-    rl.on("close", () => {
-        console.log("Exiting shell.");
-        process.exit(0);
-    });
+    rl.prompt();
 }
 
-question();
+rl.on("line", handleInput);
+
+// Optionally handle close event:
+rl.on("close", () => {
+    console.log("Exiting shell.");
+    process.exit(0);
+});
+
+// ----- Main REPL Loop -----
+rl.prompt();
