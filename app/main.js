@@ -80,7 +80,7 @@ function completer(line) {
         }
     } else {
         if (hits.length === 1) {
-            return [[hits[0] + " "], line];
+            return [[hits[0]], line];
         } else {
             // Handle multiple matches
             if (currentInput === lastTabInput && tabPressCount === 1) {
