@@ -57,7 +57,7 @@ function completer(line) {
     if (matches.length > 1) {
         if (currentInput === lastTabInput && tabPressCount === 1) {
             // Second TAB: show matches
-            process.stdout.write("\n" + matches.join("") + "\n");
+            process.stdout.write("\n" + matches.join(" ") + "\n");
             rl.prompt(true);
             lastTabInput = "";
             tabPressCount = 0;
