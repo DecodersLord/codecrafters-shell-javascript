@@ -33,7 +33,6 @@ function completer(line) {
     const paths = process.env.PATH.split(":");
     const executables = new Set();
 
-    // Collect executable files from PATH directories
     for (const dir of paths) {
         try {
             const files = fs.readdirSync(dir);
@@ -45,13 +44,9 @@ function completer(line) {
                     if (stats.isFile()) {
                         executables.add(file);
                     }
-                } catch (e) {
-                    // Skip non-executable files
-                }
+                } catch (e) {}
             }
-        } catch (e) {
-            // Skip inaccessible directories
-        }
+        } catch (e) {}
     }
 
     const allCommands = [...builtins, ...executables].sort();
@@ -72,19 +67,15 @@ function completer(line) {
             (cmd) => cmd.startsWith(lcp) && cmd.length > lcp.length
         );
         if (hasLongerCommands) {
-            // Complete to LCP without space
             return [[lcp], line];
         } else {
-            // Complete to LCP with space
             return [[lcp + " "], line];
         }
     } else {
         if (hits.length === 1) {
             return [[hits[0]], line];
         } else {
-            // Handle multiple matches
             if (currentInput === lastTabInput && tabPressCount === 1) {
-                // Show matches
                 process.stdout.write("\n" + hits.join("  ") + "\n");
                 rl.line = line;
                 rl.cursor = line.length;
@@ -93,7 +84,6 @@ function completer(line) {
                 tabPressCount = 0;
                 return [[], line];
             } else {
-                // Ring bell for first tab
                 process.stdout.write("\x07");
                 lastTabInput = currentInput;
                 tabPressCount = 1;
@@ -181,13 +171,11 @@ function parseArgs(input) {
 }
 
 function handleRedirect(answer) {
-    // Determine which redirection operator is present.
     const parts = parseArgs(answer);
     const operators = ["2>>", "1>>", "2>", "1>", ">>", ">"];
     let op = null;
     let opIndex = -1;
 
-    // Find the last valid operator in the parsed arguments
     for (let i = 0; i < parts.length; i++) {
         if (operators.includes(parts[i])) {
             op = parts[i];
@@ -201,31 +189,25 @@ function handleRedirect(answer) {
     const commandParts = parts.slice(0, opIndex);
     if (commandParts.length === 0) return;
 
-    // Determine operation parameters
     const isAppend = op.endsWith(">>");
     const isStderr = op.startsWith("2");
     const flag = isAppend ? "a" : "w";
 
-    // Execute command
     const result = spawnSync(commandParts[0], commandParts.slice(1), {
         encoding: "utf-8",
         stdio: ["inherit", "pipe", "pipe"],
     });
 
     try {
-        // Always create directory structure
         fs.mkdirSync(path.dirname(filename), { recursive: true });
 
-        // Get content to write (empty string if undefined)
         const content = (isStderr ? result.stderr : result.stdout) || "";
 
-        // Always write to file (creates empty file if needed)
         fs.writeFileSync(filename, content, {
             flag: flag,
             mode: 0o644,
         });
 
-        // Print non-redirected output to console
         const consoleStream = isStderr ? process.stdout : process.stderr;
         const consoleOutput = isStderr ? result.stdout : result.stderr;
         if (consoleOutput) {
@@ -275,15 +257,13 @@ function handleType(answer) {
 }
 
 function handleFile(answer) {
-    // Use parseArgs to handle any quoting in the command name
     const parts = parseArgs(answer);
-    const executable = parts[0]; // the command name (may be quoted)
+    const executable = parts[0];
     const args = parts.slice(1);
     const paths = process.env.PATH.split(":");
     for (const pathEnv of paths) {
         let destPath = path.join(pathEnv, executable);
         if (fs.existsSync(destPath) && fs.statSync(destPath).isFile()) {
-            // Use argv0 option so that the child process sees the bare command name.
             execFileSync(destPath, args, {
                 encoding: "utf-8",
                 stdio: "inherit",
@@ -292,11 +272,10 @@ function handleFile(answer) {
             return;
         }
     }
-    //console.log(`${executable}: command not found`);
 }
 
 function handleReadFile(answer) {
-    const args = parseArgs(answer).slice(1); // Extract file paths (excluding "cat")
+    const args = parseArgs(answer).slice(1);
     if (args.length === 0) {
         console.error("cat: missing file operand");
         return;
