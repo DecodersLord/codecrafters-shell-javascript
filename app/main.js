@@ -247,7 +247,7 @@ function handleEcho(answer) {
     const parts = parseArgs(answer);
     const output = parts.slice(1).join(" ");
     // Use process.stdout instead of rl.write()
-    process.stdout.write(output + "Github Action Works!!" + "\n");
+    process.stdout.write(output + "\n");
 }
 
 function handleInvalid(answer) {
